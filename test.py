@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
-cap1 = cv2.VideoCapture('results/no_mask/resized.mp4')
-cap2 = cv2.VideoCapture('results/no_mask/src.mp4')
-cap3 = cv2.VideoCapture('results/with_mask/resized.mp4')
-cap4 = cv2.VideoCapture('results/with_mask/src.mp4')
+cap1 = cv2.VideoCapture('results/res_2/no_mask/resized.mp4')
+cap2 = cv2.VideoCapture('results/res_2/no_mask/src.mp4')
+cap3 = cv2.VideoCapture('results/res_2/with_mask/resized.mp4')
+cap4 = cv2.VideoCapture('results/res_2/with_mask/src.mp4')
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-out1 = cv2.VideoWriter('./results/merged.mp4', fourcc, 30.0, (2560,  1440))
+out1 = cv2.VideoWriter('./results/res_2/merged.mp4', fourcc, 30.0, (3840,  2160))
 while(cap1.isOpened()):
     ret1,frame1 = cap1.read()
     ret2,frame2 = cap2.read()

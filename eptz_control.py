@@ -71,7 +71,7 @@ class eptz(object):
         
         
         cv2.rectangle(img , (x1,y1) , (x2,y2) , (255,255,255) , 3)
-        print(((y2-y1)/(x2-x1)*1280))
+        
         
         resized = cv2.resize(img[y1:y2,x1:x2] , (self.width , self.height))
         

@@ -2,6 +2,10 @@ import cv2
 import numpy as np
 from eptz_control import eptz
 
+#fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#out1 = cv2.VideoWriter('./results/res_2/with_mask/src.mp4', fourcc, 30.0, (1920,  1080))
+#out2 = cv2.VideoWriter('./results/res_2/with_mask/resized.mp4', fourcc, 30.0, (1920,  1080))
+
 def remap(value, leftMin, leftMax, rightMin, rightMax):
     # Figure out how 'wide' each range is
     leftSpan = leftMax - leftMin
@@ -16,11 +20,16 @@ def remap(value, leftMin, leftMax, rightMin, rightMax):
 class heatmap(object):
     def __init__(self):
         #initialize
-        self.cap = cv2.VideoCapture("./test.mp4")
+        self.cap = cv2.VideoCapture("./videos/0629_0_0.mp4")
+        
         self.width  = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        self.area = self.width * self.height
+        
+        self.width  , self.height= 1920 , 1080
+
         self.ret, self.frame = self.cap.read()
+        self.frame = cv2.resize(self.frame , (self.width , self.height)) 
+        
         self.avg = cv2.blur(self.frame, (5, 5))
         self.avg_float = np.float32(self.avg)
         self.cnt_size_thr = 5000 # minimum threshold
@@ -61,26 +70,34 @@ class heatmap(object):
     
     def run(self):
         (x, y, w, h) = 0,0,0,0
+        self.width  , self.height= 1920 , 1080
         eptz_control = eptz(width=self.width , height=self.height)
         while(self.cap.isOpened()):
             self.ret, self.frame = self.cap.read()
+            
             if self.ret==False :
                 break
             else:
+                self.frame = cv2.resize(self.frame , (self.width , self.height))  
                 map = self.preprocess()
                 cnts = self.contours(map)
                 if cnts:
                     (x, y, w, h) = cnts
                 x_pos = x+(w//2)
                 y_pos = y+(h//2)
-                z_ratio = remap(w*h , 5000,50000 , 2,1.5)
+                z_ratio = remap(w*h , 20000,120000 , 2,1.5)
+                #print(w*h)
                 src , resized = eptz_control.run(self.frame , z_ratio , x_pos , y_pos)
                 cv2.imshow('src' , src)
                 cv2.imshow('frame' , resized)
+                #out1.write(src)
+                #out2.write(resized)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
                 cv2.accumulateWeighted(self.blur, self.avg_float, 0.01)
                 self.avg = cv2.convertScaleAbs(self.avg_float)
+        #out1.release()
+        #out2.release()
         cv2.destroyAllWindows()
             
 if __name__ == "__main__":
