@@ -67,7 +67,7 @@ https://user-images.githubusercontent.com/48129098/177932851-64f4fbab-936e-42a1-
 * Precise object detection
 * Multi-camera merging
 * Tracking strategy
-
+* Combined with servo system
 
 
 
