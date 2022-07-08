@@ -3,7 +3,7 @@ import cv2
 from time import time
 import random
 import numpy as np
-import sys
+
 class eptz(object):
     def __init__(self ,width , height):
         self.width = int(width)
@@ -101,10 +101,3 @@ if __name__ == "__main__":
         cv2.imshow("resized" , resized)
         if cv2.waitKey(1) & 0xff==ord('q'):
             break
-"""
-D1 : 查詢/比價/詢價 專案所需硬體設備: camera, gimbal motor,  motor driver, MCU etc.
-D2 : 攝影機詢價, Moving objects detection using moving average
-D3 : PID control (x-axis) & test yolov5 models
-D4 : 整理零件, 錦和高中體育館錄影, PID control (y-axis and z-axis, still have bug)
-D5 : PID control complete( wrapped into a class , complete boundary criteria)
-"""

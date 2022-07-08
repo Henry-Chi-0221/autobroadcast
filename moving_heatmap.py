@@ -1,8 +1,5 @@
 import cv2
-from cv2 import addWeighted
 import numpy as np
-from time import time
-import random
 from eptz_control import eptz
 
 def remap(value, leftMin, leftMax, rightMin, rightMax):
@@ -26,11 +23,8 @@ class heatmap(object):
         self.ret, self.frame = self.cap.read()
         self.avg = cv2.blur(self.frame, (5, 5))
         self.avg_float = np.float32(self.avg)
-
-
         self.cnt_size_thr = 5000 # minimum threshold
-        #debug toggle
-        self.debug = True
+        self.debug = True #debug toggle
         
         
     def preprocess(self):
@@ -43,7 +37,7 @@ class heatmap(object):
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
         thresh = cv2.dilate(thresh,kernel,iterations = 3)
         if self.debug:
-            self.frame = addWeighted(self.frame , 0.5 , cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR) , 0.5,0)
+            self.frame = cv2.addWeighted(self.frame , 0.5 , cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR) , 0.5,0)
         return thresh
 
     def contours(self,map):
@@ -58,7 +52,6 @@ class heatmap(object):
         if len(cnts) > 0 and max > 2500:
             (x, y, w, h) = cv2.boundingRect(cnts[id])
             if(self.debug):
-                
                 cv2.rectangle(self.frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 cv2.circle(self.frame , (x+(w//2),y+(h//2)) ,5 ,(255,0,0) , -1 )
                 cv2.drawContours(self.frame, cnts, -1, (0, 255, 255), 2)
@@ -69,13 +62,7 @@ class heatmap(object):
     def run(self):
         (x, y, w, h) = 0,0,0,0
         eptz_control = eptz(width=self.width , height=self.height)
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-        out1 = cv2.VideoWriter('./results/with_mask/src.mp4', fourcc, 30.0, (1280,  720))
-        out2 = cv2.VideoWriter('./results/with_mask/resized.mp4', fourcc, 30.0, (1280,  720))
-        frame_counter = 0
         while(self.cap.isOpened()):
-            start = time()
             self.ret, self.frame = self.cap.read()
             if self.ret==False :
                 break
@@ -87,27 +74,15 @@ class heatmap(object):
                 x_pos = x+(w//2)
                 y_pos = y+(h//2)
                 z_ratio = remap(w*h , 5000,50000 , 2,1.5)
-                #print( w*h, z_ratio)
-                #cv2.circle(self.frame , (x_pos,y_pos) , 10 , (255,255,255) ,-1)
                 src , resized = eptz_control.run(self.frame , z_ratio , x_pos , y_pos)
-                
-                out1.write(src)
-                out2.write(resized)
-                frame_counter+=1
-                if frame_counter >= 20*30:
-                    break
                 cv2.imshow('src' , src)
                 cv2.imshow('frame' , resized)
-
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
                 cv2.accumulateWeighted(self.blur, self.avg_float, 0.01)
                 self.avg = cv2.convertScaleAbs(self.avg_float)
-        out1.release()
-        out2.release()
         cv2.destroyAllWindows()
             
 if __name__ == "__main__":
     hmap = heatmap()
     hmap.run()
-    
