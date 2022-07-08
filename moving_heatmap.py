@@ -1,7 +1,6 @@
 import cv2
 from cv2 import addWeighted
 import numpy as np
-from simple_pid import PID
 from time import time
 import random
 from eptz_control import eptz
@@ -31,7 +30,7 @@ class heatmap(object):
 
         self.cnt_size_thr = 5000 # minimum threshold
         #debug toggle
-        self.debug = False
+        self.debug = True
         
         
     def preprocess(self):
@@ -70,9 +69,11 @@ class heatmap(object):
     def run(self):
         (x, y, w, h) = 0,0,0,0
         eptz_control = eptz(width=self.width , height=self.height)
-        #fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        #out1 = cv2.VideoWriter('./results/src.mp4', fourcc, 30.0, (1280,  720))
-        #out2 = cv2.VideoWriter('./results/resized.mp4', fourcc, 30.0, (1280,  720))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+        out1 = cv2.VideoWriter('./results/with_mask/src.mp4', fourcc, 30.0, (1280,  720))
+        out2 = cv2.VideoWriter('./results/with_mask/resized.mp4', fourcc, 30.0, (1280,  720))
+        frame_counter = 0
         while(self.cap.isOpened()):
             start = time()
             self.ret, self.frame = self.cap.read()
@@ -90,8 +91,11 @@ class heatmap(object):
                 #cv2.circle(self.frame , (x_pos,y_pos) , 10 , (255,255,255) ,-1)
                 src , resized = eptz_control.run(self.frame , z_ratio , x_pos , y_pos)
                 
-                #out1.write(src)
-                #out2.write(resized)
+                out1.write(src)
+                out2.write(resized)
+                frame_counter+=1
+                if frame_counter >= 20*30:
+                    break
                 cv2.imshow('src' , src)
                 cv2.imshow('frame' , resized)
 
@@ -99,8 +103,8 @@ class heatmap(object):
                     break
                 cv2.accumulateWeighted(self.blur, self.avg_float, 0.01)
                 self.avg = cv2.convertScaleAbs(self.avg_float)
-        #out1.release()
-        #out2.release()
+        out1.release()
+        out2.release()
         cv2.destroyAllWindows()
             
 if __name__ == "__main__":

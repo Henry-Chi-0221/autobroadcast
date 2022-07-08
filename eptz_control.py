@@ -1,4 +1,3 @@
-from locale import currency
 from simple_pid import PID
 import cv2
 from time import time
@@ -92,8 +91,6 @@ if __name__ == "__main__":
             break
         
         if (time() - current_time )>2:
-            #y += 10
-            #print(y)
             x = random.uniform(0 , 1280)
             y = random.uniform(0 , 720)
             z = random.uniform(1.5, 3.0)
@@ -104,7 +101,6 @@ if __name__ == "__main__":
         cv2.imshow("resized" , resized)
         if cv2.waitKey(1) & 0xff==ord('q'):
             break
-    pass
 """
 D1 : 查詢/比價/詢價 專案所需硬體設備: camera, gimbal motor,  motor driver, MCU etc.
 D2 : 攝影機詢價, Moving objects detection using moving average
