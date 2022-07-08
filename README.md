@@ -7,6 +7,17 @@ Auto Broadcasting System is a system using OpenCV and Deep-Learning technology t
 pip install opencv-python
 pip install simple-pid 
 ```
+## Usage
+```python
+#import eptz_control module
+from eptz_control import eptz 
+
+# create an instance with fixed width and height
+eptz_control = eptz(width=width , height=height) 
+
+# x and y are the coordinates of the tracking target, and z is the zooming ratio
+eptz_control.run(frame,zoom_ratio=z ,x_pos= x,y_pos= y) 
+```
 
 ## PID control of camera motion
 
