@@ -6,7 +6,7 @@ from time import time
 import random
 from eptz_control import eptz
 
-def translate(value, leftMin, leftMax, rightMin, rightMax):
+def remap(value, leftMin, leftMax, rightMin, rightMax):
     # Figure out how 'wide' each range is
     leftSpan = leftMax - leftMin
     rightSpan = rightMax - rightMin
@@ -28,15 +28,10 @@ class heatmap(object):
         self.avg = cv2.blur(self.frame, (5, 5))
         self.avg_float = np.float32(self.avg)
 
+
         self.cnt_size_thr = 5000 # minimum threshold
-
-        # PID parameters
-        self.kp = 0.01
-        self.ki = 0.2
-        self.kd = 0.1
-
         #debug toggle
-        self.debug = True
+        self.debug = False
         
         
     def preprocess(self):
@@ -74,11 +69,10 @@ class heatmap(object):
     
     def run(self):
         (x, y, w, h) = 0,0,0,0
-        eptz_control = eptz(cap = self.cap)
-
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out1 = cv2.VideoWriter('./results/src.mp4', fourcc, 30.0, (1280,  720))
-        out2 = cv2.VideoWriter('./results/resized.mp4', fourcc, 30.0, (1280,  720))
+        eptz_control = eptz(width=self.width , height=self.height)
+        #fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        #out1 = cv2.VideoWriter('./results/src.mp4', fourcc, 30.0, (1280,  720))
+        #out2 = cv2.VideoWriter('./results/resized.mp4', fourcc, 30.0, (1280,  720))
         while(self.cap.isOpened()):
             start = time()
             self.ret, self.frame = self.cap.read()
@@ -91,14 +85,13 @@ class heatmap(object):
                     (x, y, w, h) = cnts
                 x_pos = x+(w//2)
                 y_pos = y+(h//2)
-                z_ratio = translate(w*h , 5000,50000 , 2,1.2)
+                z_ratio = remap(w*h , 5000,50000 , 2,1.5)
                 #print( w*h, z_ratio)
                 #cv2.circle(self.frame , (x_pos,y_pos) , 10 , (255,255,255) ,-1)
                 src , resized = eptz_control.run(self.frame , z_ratio , x_pos , y_pos)
                 
-
-                out1.write(src)
-                out2.write(resized)
+                #out1.write(src)
+                #out2.write(resized)
                 cv2.imshow('src' , src)
                 cv2.imshow('frame' , resized)
 
@@ -106,11 +99,10 @@ class heatmap(object):
                     break
                 cv2.accumulateWeighted(self.blur, self.avg_float, 0.01)
                 self.avg = cv2.convertScaleAbs(self.avg_float)
-        out1.release()
-        out2.release()
+        #out1.release()
+        #out2.release()
         cv2.destroyAllWindows()
-            #fps = round (1 / (time() - start)  ,3) 
-            #print("FPS :",fps)
+            
 if __name__ == "__main__":
     hmap = heatmap()
     hmap.run()

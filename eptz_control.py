@@ -4,11 +4,11 @@ import cv2
 from time import time
 import random
 import numpy as np
+import sys
 class eptz(object):
-    def __init__(self ,cap):
-        self.cap = cap
-        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    def __init__(self ,width , height):
+        self.width = int(width)
+        self.height = int(height)
 
          # PID parameters
         self.kp = 0.005
@@ -55,18 +55,25 @@ class eptz(object):
             self.current_y += pid_y
         
         pid_zoom = self.pid(zoom_ratio , self.current_zoom)
-        
-        if(0 < self.current_zoom + pid_zoom < 3) and (1):
-            self.current_zoom += pid_zoom
+        #print((self.current_x + self.width*0.5*(1/self.current_zoom) ))
+        if  (0 < self.current_zoom + pid_zoom < 3) and \
+            (self.current_x - self.width*0.5*(1/self.current_zoom) )>= 0  and \
+            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width and\
+            self.current_y - self.height*0.5*(1/self.current_zoom) >= 0  and \
+            self.current_y + self.height*0.5*(1/self.current_zoom) <= self.height:
 
+            self.current_zoom += pid_zoom
+        
         x1,y1,x2,y2 = self.zoom(zoom_ratio=self.current_zoom,x_offset=self.current_x,y_offset=self.current_y) #x
         
         res_x = np.clip(np.array([x1,x2]) , 0 , self.width)
         res_y = np.clip(np.array([y1,y2]) , 0 , self.height)
         (x1,x2), (y1,y2) = res_x[:] , res_y[:]
         
-
-        cv2.rectangle(img , (x1,y1) , (x2,y2) , (255,255,255) , 1)
+        
+        cv2.rectangle(img , (x1,y1) , (x2,y2) , (255,255,255) , 3)
+        print(((y2-y1)/(x2-x1)*1280))
+        
         resized = cv2.resize(img[y1:y2,x1:x2] , (self.width , self.height))
         
         return img ,resized
@@ -74,7 +81,9 @@ class eptz(object):
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture('test.mp4')
-    eptz_control = eptz(cap=cap)
+    width  = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    eptz_control = eptz(width=width , height=height)
     x ,y,z = 640 , 360 ,2
     current_time = time()
     while(cap.isOpened()):
@@ -82,7 +91,7 @@ if __name__ == "__main__":
         if not ret:
             break
         
-        if (time() - current_time )>1:
+        if (time() - current_time )>2:
             #y += 10
             #print(y)
             x = random.uniform(0 , 1280)
@@ -96,3 +105,10 @@ if __name__ == "__main__":
         if cv2.waitKey(1) & 0xff==ord('q'):
             break
     pass
+"""
+D1 : 查詢/比價/詢價 專案所需硬體設備: camera, gimbal motor,  motor driver, MCU etc.
+D2 : 攝影機詢價, Moving objects detection using moving average
+D3 : PID control (x-axis) & test yolov5 models
+D4 : 整理零件, 錦和高中體育館錄影, PID control (y-axis and z-axis, still have bug)
+D5 : PID control complete( wrapped into a class , complete boundary criteria)
+"""
