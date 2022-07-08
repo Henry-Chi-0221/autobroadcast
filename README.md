@@ -1,7 +1,7 @@
 # Auto Broadcasting System (ePTZ)
 Auto Broadcasting System is a system using OpenCV and Deep-Learning technology to implement a tracking system.
 
-## requirements
+## Requirements
 
 ```python
 pip install opencv-python
