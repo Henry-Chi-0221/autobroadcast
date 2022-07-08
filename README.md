@@ -47,7 +47,11 @@ while(cap.isOpened()):
 * left: global camera 
 * right: moving camera
 
-https://user-images.githubusercontent.com/48129098/177931872-a3ed7810-a7de-49f7-81bc-49550eb0f28d.mp4
+
+
+https://user-images.githubusercontent.com/48129098/177932851-64f4fbab-936e-42a1-9d28-907d2d938a59.mp4
+
+
 
 
 
