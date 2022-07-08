@@ -62,7 +62,11 @@ while(cap.isOpened()):
 
 https://user-images.githubusercontent.com/48129098/177932851-64f4fbab-936e-42a1-9d28-907d2d938a59.mp4
 
+## TODO List
 
+* Precise object detection
+* Multi-camera merging
+* Tracking strategy
 
 
 
