@@ -52,7 +52,7 @@ while(cap.isOpened()):
         break
 ```
 
-## Demos
+## Demo
 * Top: normal mode    
 * Bottom: debug mode
 * left: global camera 
