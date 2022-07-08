@@ -62,6 +62,10 @@ while(cap.isOpened()):
 
 https://user-images.githubusercontent.com/48129098/177932851-64f4fbab-936e-42a1-9d28-907d2d938a59.mp4
 
+
+https://user-images.githubusercontent.com/48129098/177968949-aca637ff-fcbc-45dd-bc6c-f33eeae3deb7.mp4
+
+
 ## TODO List
 
 * Precise object detection
