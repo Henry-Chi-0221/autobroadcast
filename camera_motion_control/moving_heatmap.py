@@ -20,7 +20,7 @@ def remap(value, leftMin, leftMax, rightMin, rightMax):
 class heatmap(object):
     def __init__(self):
         #initialize
-        self.cap = cv2.VideoCapture("./videos/0629_0_0.mp4")
+        self.cap = cv2.VideoCapture("./test.mp4")
         
         self.width  = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
