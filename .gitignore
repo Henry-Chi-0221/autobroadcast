@@ -1,3 +1,5 @@
-*.mp4
+**/*.mp4
+**/*.npy
 __pycache__
 .DS_Store
+
