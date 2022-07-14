@@ -10,20 +10,7 @@ from cython_simple import coor_load
 import sys
 class Stitcher:
     def __init__(self):
-        self.load_coor = np.int64(np.load('trns.npy'))
-        coor = self.load_coor
-        self.mask = np.ones((1080,3840,3))
-
-        for i in range(coor.shape[0]):
-            for j in range(coor.shape[1]):
-                y = coor[i,j,0]
-                x = coor[i,j,1]
-                if (x < 0  or y < 0 ):
-                    continue
-                #print(self.load_coor[i,j])
-                self.mask[i,j,:] = 0
-        #cv2.imshow('test' , self.mask)
-        #cv2.waitKey(0)
+        pass
     def stitch(self, imgs, blending_mode = "linearBlending", ratio = 0.75):
         '''
             The main method to stitch image
@@ -53,18 +40,19 @@ class Stitcher:
         HomoMat = self.fitHomoMat(matches_pos)
         
         np.save('best_homomat' , HomoMat)
+        print("Homography matrix saved.")
         # Step4 - warp image to create panoramic image
-        print("Step4 - warp image to create panoramic image...")
-        warp_img = self.warp([img_left, img_right], HomoMat, blending_mode) 
-        
-        return warp_img
+        #print("Step4 - warp image to create panoramic image...")
+        #warp_img = self.warp([img_left, img_right], HomoMat, blending_mode) 
+        return HomoMat
+        #return warp_img
     
     def detectAndDescribe(self, img):
         '''
         The Detector and Descriptor
         '''
         # SIFT detector and descriptor
-        sift = cv2.xfeatures2d.SIFT_create()
+        sift = cv2.SIFT_create()
         kps, features = sift.detectAndCompute(img,None)
         
         return kps, features
@@ -124,9 +112,9 @@ class Stitcher:
                 cv2.line(vis, pos_l, pos_r, (255, 0, 0), 1)
                 
         # return the visualization
-        plt.figure(4)
-        plt.title("img with matching points")
-        plt.imshow(vis[:,:,::-1])
+        #plt.figure(4)
+        #plt.title("img with matching points")
+        #plt.imshow(vis[:,:,::-1])
         #cv2.imwrite("Feature matching img/matching.jpg", vis)
         
         return vis
@@ -177,6 +165,7 @@ class Stitcher:
         return Best_H
     
     def warp(self, imgs, HomoMat, blending_mode):
+        a_s = time()
         '''
            warp image to create panoramic image
            There are three different blending method - noBlending、linearBlending、linearBlendingWithConstant
@@ -188,11 +177,6 @@ class Stitcher:
         if (blending_mode == "noBlending"):
             stitch_img[:hl, :wl] = img_left
 
-        #inv_H = np.linalg.inv(HomoMat)
-        
-        
-        #self.coor_save(stitch_img.shape[0],stitch_img.shape[1],inv_H ,hr,wr)
-        #stitch_img = self.coor_load(stitch_img , img_right , stitch_img.shape[0] , stitch_img.shape[1])
         
         img_right = cv2.warpPerspective(img_right, HomoMat, (stitch_img.shape[1] , stitch_img.shape[0]))
         
@@ -201,20 +185,11 @@ class Stitcher:
         _ , mask_a = cv2.threshold( gray , 0 , 255 , cv2.THRESH_BINARY_INV)
         mask_a =  cv2.morphologyEx(mask_a, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8), iterations=4) 
         mask_a = cv2.cvtColor(mask_a , cv2.COLOR_GRAY2BGR)/255
-        a_s = time() 
-
+         
         ### -v- 0.0592188835144043 s
         img_right = img_right * ( 1 - mask_a )
         stitch_img = ( (mask_a * stitch_img) + img_right ) 
-        #stitch_img = cv2.resize( (stitch_img/255  + img_right/255), (3840//2,1080//2))
-        print('Python runtime :' ,time() - a_s,'FPS :' ,  1/ (time() - a_s ))
         
-        #stitch_img = coor_load(stitch_img , img_right ,self.load_coor, stitch_img.shape[0] , stitch_img.shape[1])
-        #cv2.imshow('test' , cv2.resize(stitch_img , (3840//2 , 1080//2) )  )
-        
-        stitch_img = cv2.resize(stitch_img , (3840//2 , 1080//2) )
-
-        # create the Blender object to blending the image
         blender = Blender()
         if (blending_mode == "linearBlending"):
             stitch_img = blender.linearBlending([img_left, stitch_img])
@@ -222,51 +197,9 @@ class Stitcher:
             stitch_img = blender.linearBlendingWithConstantWidth([img_left, stitch_img])
             print("blending...")
         # remove the black border
-        #stitch_img = self.removeBlackBorder(stitch_img)
-        
+        stitch_img = self.removeBlackBorder(stitch_img)
+        print('Python runtime :' ,time() - a_s,'FPS :' ,  1/ (time() - a_s ))
         return stitch_img
-    def coor_save(self ,height,width , inv_H , hr,wr):
-        trns = np.ndarray((height , width,2))
-        for i in range(height):
-            for j in range(width):
-                coor = np.array([j, i, 1])
-                img_right_coor = inv_H @ coor 
-                img_right_coor /= img_right_coor[2]
-                y, x = int(round(img_right_coor[0])), int(round(img_right_coor[1])) 
-                if (x < 0 or x >= hr or y < 0 or y >= wr):
-                    trns[i,j,:] = [-1,-1]
-                    continue
-                trns[i,j,:] = [y,x]
-        np.save('trns' , trns)
-    """
-    def coor_load(self , img_L ,img_R , height , width):
-        print(img_L.ndim , img_L.dtype)
-        print(img_R.ndim , img_R.dtype)
-        
-        
-        load_coor = np.int64(np.load('trns.npy'))
-        
-        s = time()
-        for i in range(height):
-            for j in range(width):
-                [y,x] = load_coor[i,j ,:]
-                if (x < 0  or y < 0 ):
-                    continue
-                img_L[i, j] = img_R[x, y]
-        print(time() - s)
-        return img_L
-    """
-    def masking(self,img , iters = 4):
-        gray = cv2.cvtColor(img ,cv2.COLOR_BGR2GRAY)
-        ret, thresh  = cv2.threshold(gray , 0 , 255 , cv2.THRESH_BINARY_INV)
-        kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=iters)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=iters)
-        #thresh = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel, iterations=1)
-        
-        thresh = cv2.GaussianBlur(thresh, (0,0), sigmaX=2, sigmaY=2, borderType = cv2.BORDER_DEFAULT)
-       
-        return thresh
     def removeBlackBorder(self, img):
         '''
         Remove img's the black border 
@@ -324,9 +257,9 @@ class Blender:
                     overlap_mask[i, j] = 1
         
         # Plot the overlap mask
-        plt.figure(21)
-        plt.title("overlap_mask")
-        plt.imshow(overlap_mask.astype(int), cmap="gray")
+        #plt.figure(21)
+        #plt.title("overlap_mask")
+        #plt.imshow(overlap_mask.astype(int), cmap="gray")
         
         # compute the alpha mask to linear blending the overlap region
         alpha_mask = np.zeros((hr, wr)) # alpha value depend on left image
@@ -460,17 +393,18 @@ class Homography:
     
 if __name__ == "__main__":
     images = load_imgs_heic("./images/test/*")
-
     # The stitch object to stitch the image
     blending_mode = "noBlending" # three mode - noBlending、linearBlending、linearBlendingWithConstant
     stitcher = Stitcher()
-    #warp_img = stitcher.stitch(images, blending_mode)
-    
-    best_homomat = np.load('./best_homomat.npy')
+
+    init = False
+    if init:
+        best_homomat = stitcher.stitch(images, blending_mode)
+    else:
+        best_homomat = np.load('./best_homomat.npy')
     print('start')
     while(1):
         warp_img = stitcher.warp(images,best_homomat , blending_mode)
         print('done')
-        #cv2.imwrite("./test.png", warp_img)
         cv2.imshow('result',np.uint8(warp_img) )
         cv2.waitKey(1)
