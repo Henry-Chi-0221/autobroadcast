@@ -3,7 +3,7 @@ import cv2
 import pyheif
 from glob import glob
 
-def load_imgs_heic(path , d_size=[1920,1080]):
+def load_imgs_heic(path , d_size=(1920,1080)):
 	images = []
 	path = path
 	for img_name in sorted(glob(path))[:2]:

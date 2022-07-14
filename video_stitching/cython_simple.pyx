@@ -20,7 +20,7 @@ def coor_load(np.ndarray[dtype_t, ndim=3 ,mode = 'c']  img_L  ,
     cdef int h = height
     cdef int w = width
     cdef Py_ssize_t i, j,x,y
-    cdef double s = time()
+    #cdef double s = time()
     cdef double[:,:,:] arr_L = img_L
     cdef double[:,:,:] arr_R = img_R
     for i in prange(h , nogil=True):
@@ -29,8 +29,8 @@ def coor_load(np.ndarray[dtype_t, ndim=3 ,mode = 'c']  img_L  ,
             x = coor[i,j,1]
             if (x < 0  or y < 0 ):
                 continue
-            #arr_L[i][j] = arr_R[x,y]
-    print("Cython runtime" , time()-s)
+            arr_L[i][j] = arr_R[x,y]
+    #print("Cython runtime" , time()-s)
     return np.asarray(arr_L)
     #return img_L
 """
