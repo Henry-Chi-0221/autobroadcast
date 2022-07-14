@@ -11,9 +11,9 @@ ctypedef np.float64_t dtype_t
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def coor_load(np.ndarray[dtype_t, ndim=3]  img_L  ,
-              np.ndarray[dtype_t, ndim=3]  img_R  , 
-              np.ndarray[np.int64_t, ndim=3] coor ,
+def coor_load(np.ndarray[dtype_t, ndim=3 ,mode = 'c']  img_L  ,
+              np.ndarray[dtype_t, ndim=3 ,mode = 'c']  img_R  , 
+              np.ndarray[np.int64_t, ndim=3 ,mode = 'c'] coor ,
               int height ,
               int width):
 
@@ -21,17 +21,18 @@ def coor_load(np.ndarray[dtype_t, ndim=3]  img_L  ,
     cdef int w = width
     cdef Py_ssize_t i, j,x,y
     cdef double s = time()
-
+    cdef double[:,:,:] arr_L = img_L
+    cdef double[:,:,:] arr_R = img_R
     for i in prange(h , nogil=True):
-        for j in prange(w , nogil=True):
+        for j in range(w):
             y = coor[i,j,0]
             x = coor[i,j,1]
             if (x < 0  or y < 0 ):
                 continue
-            img_L[i,j] = img_R[x,y]
+            #arr_L[i][j] = arr_R[x,y]
     print("Cython runtime" , time()-s)
-    return img_L
-
+    return np.asarray(arr_L)
+    #return img_L
 """
 @cython.boundscheck(False)
 @cython.wraparound(False)

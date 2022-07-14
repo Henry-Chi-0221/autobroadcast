@@ -11,7 +11,7 @@ import sys
 class Stitcher:
     def __init__(self):
         self.load_coor = np.int64(np.load('trns.npy'))
-    
+        
     def stitch(self, imgs, blending_mode = "linearBlending", ratio = 0.75):
         '''
             The main method to stitch image
@@ -185,7 +185,7 @@ class Stitcher:
         #self.coor_save(stitch_img.shape[0],stitch_img.shape[1],inv_H ,hr,wr)
         
         #stitch_img = self.coor_load(stitch_img , img_right , stitch_img.shape[0] , stitch_img.shape[1])
-
+   
         stitch_img = coor_load(stitch_img , img_right ,self.load_coor, stitch_img.shape[0] , stitch_img.shape[1])
         print('Python runtime :' ,time() - a_s,'FPS :' ,  1/ (time() - a_s ))
         cv2.imshow('test' , stitch_img/255)
@@ -442,6 +442,7 @@ if __name__ == "__main__":
     blending_mode = "noBlending" # three mode - noBlending、linearBlending、linearBlendingWithConstant
     stitcher = Stitcher()
     #warp_img = stitcher.stitch(images, blending_mode)
+    
     best_homomat = np.load('./best_homomat.npy')
     print('start')
     while(1):
