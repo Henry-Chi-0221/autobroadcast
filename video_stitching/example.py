@@ -1,3 +1,4 @@
+from pickletools import uint8
 from cv2 import threshold
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,9 +6,10 @@ import cv2
 import random
 from utils import load_imgs_heic
 from time import time
-
+import cupy as cp
 from cython_simple import coor_load
 import sys
+from cupyx.scipy.ndimage import binary_dilation
 class Stitcher:
     def __init__(self):
         pass
@@ -165,31 +167,47 @@ class Stitcher:
         return Best_H
     
     def warp(self, imgs, HomoMat, blending_mode):
-        a_s = time()
+       
         '''
            warp image to create panoramic image
            There are three different blending method - noBlending、linearBlending、linearBlendingWithConstant
         '''
+        a_s = time()
+        use_gpu = True
+
+        
         img_left, img_right = imgs
         (hl, wl) = img_left.shape[:2]
         (hr, wr) = img_right.shape[:2]
+        
         stitch_img = np.zeros( (max(hl, hr), wl + wr, 3), dtype="int") # create the (stitch)big image accroding the imgs height and width 
+        
         if (blending_mode == "noBlending"):
             stitch_img[:hl, :wl] = img_left
-
-        
-        img_right = cv2.warpPerspective(img_right, HomoMat, (stitch_img.shape[1] , stitch_img.shape[0]))
-        
+            
+        img_right = cv2.warpPerspective(img_right, HomoMat, (stitch_img.shape[1] , stitch_img.shape[0])) #0.0027
         ### -v- 0.08173298835754395 s
         gray = cv2.cvtColor(img_right , cv2.COLOR_BGR2GRAY)
         _ , mask_a = cv2.threshold( gray , 0 , 255 , cv2.THRESH_BINARY_INV)
-        mask_a =  cv2.morphologyEx(mask_a, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8), iterations=4) 
-        mask_a = cv2.cvtColor(mask_a , cv2.COLOR_GRAY2BGR)/255
-         
+        #mask_a =  cv2.morphologyEx(mask_a, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8), iterations=1) 
+          #0.014
         ### -v- 0.0592188835144043 s
-        img_right = img_right * ( 1 - mask_a )
-        stitch_img = ( (mask_a * stitch_img) + img_right ) 
+      
         
+        if use_gpu:
+            with cp.cuda.Device(0):
+                mask_a_gpu = cp.asarray(mask_a)
+                img_right_gpu = cp.asarray(img_right)
+                stitch_img_gpu = cp.asarray(stitch_img)
+                mask_a_gpu =  binary_dilation(mask_a_gpu/255).astype(np.uint8)
+                mask_a_gpu = cp.stack((mask_a_gpu,)*3, axis=-1)
+                img_right_gpu = img_right_gpu * ( 1 - mask_a_gpu )
+                stitch_img_gpu = ( (mask_a_gpu * stitch_img_gpu) + img_right_gpu ) 
+                stitch_img  = cp.asnumpy(stitch_img_gpu)
+        else:
+            mask_a = mask_a/255
+            img_right = img_right * ( 1 - mask_a )
+            stitch_img = ( (mask_a * stitch_img) + img_right ) 
         blender = Blender()
         if (blending_mode == "linearBlending"):
             stitch_img = blender.linearBlending([img_left, stitch_img])
