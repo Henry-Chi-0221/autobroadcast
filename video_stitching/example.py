@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import random
-from utils import load_imgs_heic
+from utils import load_imgs_heic , load_img_kitti
 from time import time
 import cupy as cp
 from cython_simple import coor_load
@@ -32,8 +32,11 @@ class Stitcher:
         # Step2 - extract the match point with threshold (David Lowe’s ratio test)
         print("Step2 - Extract the match point with threshold (David Lowe’s ratio test)...")
         matches_pos = self.matchKeyPoint(kps_l, kps_r, features_l, features_r, ratio)
+       
         print("The number of matching points:", len(matches_pos))
-        
+        if len(matches_pos) < 500 :
+            print("Too few matched points. Bad sample.")
+            sys.exit()
         # Step2 - draw the img with matching point and their connection line
         self.drawMatches([img_left, img_right], matches_pos)
         
@@ -173,7 +176,7 @@ class Stitcher:
            There are three different blending method - noBlending、linearBlending、linearBlendingWithConstant
         '''
         a_s = time()
-        use_gpu = True
+        
 
         
         img_left, img_right = imgs
@@ -193,21 +196,24 @@ class Stitcher:
           #0.014
         ### -v- 0.0592188835144043 s
       
-        
         if use_gpu:
             with cp.cuda.Device(0):
                 mask_a_gpu = cp.asarray(mask_a)
                 img_right_gpu = cp.asarray(img_right)
                 stitch_img_gpu = cp.asarray(stitch_img)
-                mask_a_gpu =  binary_dilation(mask_a_gpu/255).astype(np.uint8)
+                mask_a_gpu =  binary_dilation(mask_a_gpu/255).astype(cp.uint8)
                 mask_a_gpu = cp.stack((mask_a_gpu,)*3, axis=-1)
                 img_right_gpu = img_right_gpu * ( 1 - mask_a_gpu )
                 stitch_img_gpu = ( (mask_a_gpu * stitch_img_gpu) + img_right_gpu ) 
-                stitch_img  = cp.asnumpy(stitch_img_gpu)
+                #stitch_img_gpu  = stitch_img_gpu[: , :]
+                stitch_img  = cp.asnumpy(stitch_img_gpu.astype(cp.uint8) )
         else:
-            mask_a = mask_a/255
+            mask_a = (mask_a/255).astype(cp.uint8)
+            mask_a =  cv2.morphologyEx(mask_a, cv2.MORPH_DILATE, np.ones((3, 3), np.uint8), iterations=1) 
+            mask_a = cv2.cvtColor(mask_a , cv2.COLOR_GRAY2BGR)
             img_right = img_right * ( 1 - mask_a )
-            stitch_img = ( (mask_a * stitch_img) + img_right ) 
+            stitch_img = ( (mask_a * stitch_img) + img_right ).astype(cp.uint8)
+        
         blender = Blender()
         if (blending_mode == "linearBlending"):
             stitch_img = blender.linearBlending([img_left, stitch_img])
@@ -215,8 +221,8 @@ class Stitcher:
             stitch_img = blender.linearBlendingWithConstantWidth([img_left, stitch_img])
             print("blending...")
         # remove the black border
-        stitch_img = self.removeBlackBorder(stitch_img)
-        print('Python runtime :' ,time() - a_s,'FPS :' ,  1/ (time() - a_s ))
+        #stitch_img = self.removeBlackBorder(stitch_img)
+        #print('Python runtime :' ,time() - a_s,'FPS :' ,  1/ (time() - a_s ))
         return stitch_img
     def removeBlackBorder(self, img):
         '''
@@ -295,8 +301,6 @@ class Blender:
             decrease_step = 1 / (maxIdx - minIdx)
             for j in range(minIdx, maxIdx + 1):
                 alpha_mask[i, j] = 1 - (decrease_step * (j - minIdx))
-        
-        
         
         linearBlending_img = np.copy(img_right)
         linearBlending_img[:hl, :wl] = np.copy(img_left)
@@ -378,7 +382,6 @@ class Blender:
         
         return linearBlendingWithConstantWidth_img
 
-
 class Homography:
     def solve_homography(self, P, m):
         """
@@ -410,19 +413,31 @@ class Homography:
         return H
     
 if __name__ == "__main__":
-    images = load_imgs_heic("./images/test/*")
-    # The stitch object to stitch the image
+    images = [load_imgs_heic("./images/test/*")]
+    # The stitch object to stitch the image    
+    #images = load_img_kitti()
+
     blending_mode = "noBlending" # three mode - noBlending、linearBlending、linearBlendingWithConstant
     stitcher = Stitcher()
-
     init = False
+    use_gpu = True
     if init:
-        best_homomat = stitcher.stitch(images, blending_mode)
+        best_homomat = stitcher.stitch(images[0], blending_mode)
     else:
         best_homomat = np.load('./best_homomat.npy')
     print('start')
+
+    #for imgs in images:
     while(1):
-        warp_img = stitcher.warp(images,best_homomat , blending_mode)
-        print('done')
-        cv2.imshow('result',np.uint8(warp_img) )
+        imgs = images[0]
+        s = time()
+        #print(imgs[0].shape)
+        warp_img = stitcher.warp(imgs,best_homomat , blending_mode)
+        print('Python runtime :' ,round(time() - s,3),'ms ,','FPS :' , round( 1/ (time() - s ),3) )
+        #print('Done, shape : ' , warp_img.shape )
+        cv2.imshow('L' , cv2.resize(imgs[0] , (imgs[0].shape[1]//2 ,imgs[0].shape[0]//2 )) )
+        cv2.imshow('R' , cv2.resize(imgs[1] , (imgs[1].shape[1]//2 ,imgs[1].shape[0]//2 )))
+        cv2.imshow('result' ,cv2.resize(warp_img , (warp_img.shape[1]//2 ,warp_img.shape[0]//2 )) )
+        
+        
         cv2.waitKey(1)

@@ -1,5 +1,7 @@
 pyheif
-cython
+#cython
 simple_pid
 opencv_python
 numpy
+scipy
+cupy
