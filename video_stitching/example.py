@@ -416,17 +416,18 @@ if __name__ == "__main__":
     images = [load_imgs_heic("./images/test/*")]
     # The stitch object to stitch the image    
     #images = load_img_kitti()
-
     blending_mode = "noBlending" # three mode - noBlending、linearBlending、linearBlendingWithConstant
     stitcher = Stitcher()
     init = False
     use_gpu = True
+
     if init:
         best_homomat = stitcher.stitch(images[0], blending_mode)
     else:
         best_homomat = np.load('./best_homomat.npy')
-    print('start')
 
+    print('start')
+    
     #for imgs in images:
     while(1):
         imgs = images[0]
@@ -438,6 +439,5 @@ if __name__ == "__main__":
         cv2.imshow('L' , cv2.resize(imgs[0] , (imgs[0].shape[1]//2 ,imgs[0].shape[0]//2 )) )
         cv2.imshow('R' , cv2.resize(imgs[1] , (imgs[1].shape[1]//2 ,imgs[1].shape[0]//2 )))
         cv2.imshow('result' ,cv2.resize(warp_img , (warp_img.shape[1]//2 ,warp_img.shape[0]//2 )) )
-        
         
         cv2.waitKey(1)
