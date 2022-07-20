@@ -165,23 +165,13 @@ class VideoStitcher:
         print('[INFO]: Video stitching finished')
 
     def blending(self, L, R): # 0.056 ms  ,FPS : 18.009
-        
-        
-        #L_fake = np.uint8(L * 0.5)
-        #R_fake = np.uint8(R * 0.5)
-        #R_fake[0:L_fake.shape[0], 0:L_fake.shape[1]] += L_fake
-        #cv2.imshow('overlap' , R_fake)
-        
-
         if self.mask_L is None :
             self.mask_L , self.mask_R = self.masking(R)
             self.mask_L , self.mask_R = np.float64(self.mask_L) , np.float64(self.mask_R) 
             self.mask_L , self.mask_R = self.mask_L[:,:L.shape[1]]/255/255 , self.mask_R/255/255
             self.mask_shape = self.mask_L.shape
-        
         L = np.float64(L)
         R = np.float64(R)
-
         R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape[0] , self.mask_shape[1])
         
         return R
