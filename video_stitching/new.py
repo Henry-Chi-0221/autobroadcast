@@ -1,13 +1,7 @@
-from operator import le
 import cv2
-from joblib import Parallel
 import numpy as np
-import imutils
-import tqdm
 import os
-import sys
 from time import time
-from numba import njit , jit ,cuda
 
 class VideoStitcher:
     def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=False):
@@ -129,13 +123,13 @@ class VideoStitcher:
         fps = int(left_video.get(cv2.CAP_PROP_FPS))
         
         while(left_video.isOpened() and right_video.isOpened()):
-            s = time()
+            
             ok_l, left = left_video.read()
             ok_r, right = right_video.read()
             if ok_l and ok_r:
-                
+                s = time()
                 stitched_frame = self.stitch([left, right])
-                
+                print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
                 if stitched_frame is None:
                     print("[INFO]: Homography could not be computed!")
                     break
@@ -155,7 +149,7 @@ class VideoStitcher:
                     break
             else:
                 break
-            print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
+            
         out_L.release()
         out_R.release()
         out_res.release()
@@ -170,32 +164,11 @@ class VideoStitcher:
             self.mask_shape = self.mask_L.shape
         L = np.float64(L)
         R = np.float64(R)
+        
         L *= self.mask_L
         R *= self.mask_R
         R[:self.mask_shape[0] , :self.mask_shape[1]] += L
-        #R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape[0] , self.mask_shape[1])
         
-        return R
-    @staticmethod
-    @jit('float64[:,:,:](float64[:,:,:],float64[:,:,:],float64[:,:,:],float64[:,:,:],intc,intc)',nopython=True)
-    def blending_njit(L,R,mask_L,mask_R ,h,w):
-        for i in range(L.shape[0]):
-            for j in range(L.shape[1]):
-                k = mask_L[i,j][0]
-                if k :
-                    L[i,j] *= mask_L[i,j]
-                else:
-                    L[i,j] = 0 
-        for i in range(R.shape[0]):
-            for j in range(R.shape[1]):
-                k = mask_R[i,j][0]
-                if k :
-                    R[i,j] *= mask_R[i,j] 
-                else:
-                    R[i,j] = 0 
-        for i in range(h):
-            for j in range(w):
-                R[i,j] += L[i,j]
         return R
 
     def masking(self,img):
