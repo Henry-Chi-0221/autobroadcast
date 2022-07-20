@@ -1,13 +1,14 @@
 from operator import le
 import cv2
+from joblib import Parallel
 import numpy as np
 import imutils
 import tqdm
 import os
 import sys
 from time import time
-from numba import njit , jit
-from cython_simple import blending_njit
+from numba import njit , jit ,cuda
+
 class VideoStitcher:
     def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=False):
         # Initialize arguments
@@ -129,11 +130,8 @@ class VideoStitcher:
         
         while(left_video.isOpened() and right_video.isOpened()):
             s = time()
-        #for _ in tqdm.tqdm(np.arange(n_frames)):
-            # Grab the frames from their respective video streams
             ok_l, left = left_video.read()
             ok_r, right = right_video.read()
-            
             if ok_l and ok_r:
                 
                 stitched_frame = self.stitch([left, right])
@@ -172,13 +170,15 @@ class VideoStitcher:
             self.mask_shape = self.mask_L.shape
         L = np.float64(L)
         R = np.float64(R)
-        R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape[0] , self.mask_shape[1])
+        L *= self.mask_L
+        R *= self.mask_R
+        R[:self.mask_shape[0] , :self.mask_shape[1]] += L
+        #R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape[0] , self.mask_shape[1])
         
         return R
     @staticmethod
     @jit('float64[:,:,:](float64[:,:,:],float64[:,:,:],float64[:,:,:],float64[:,:,:],intc,intc)',nopython=True)
     def blending_njit(L,R,mask_L,mask_R ,h,w):
-        
         for i in range(L.shape[0]):
             for j in range(L.shape[1]):
                 k = mask_L[i,j][0]
@@ -199,7 +199,6 @@ class VideoStitcher:
         return R
 
     def masking(self,img):
-        
         img = cv2.cvtColor(img , cv2.COLOR_BGR2GRAY)
         ret , img = cv2.threshold(img , 0,255  , cv2.THRESH_BINARY)
         (cnts, _) = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -216,19 +215,12 @@ class VideoStitcher:
 
         overlap_mid_line  = (mid_line + x)//2
         constant = 40
-        mask1 = np.repeat(np.tile(np.linspace(0, 1, mid_line - x ), (img.shape[0], 1))[:, :, np.newaxis], 1, axis=2)[:,:,0]
+        #mask1 = np.repeat(np.tile(np.linspace(0, 1, mid_line - x ), (img.shape[0], 1))[:, :, np.newaxis], 1, axis=2)[:,:,0]
         mask2 = np.repeat(np.tile(np.linspace(0, 1, constant     ), (img.shape[0], 1))[:, :, np.newaxis], 1, axis=2)[:,:,0]
-        cv2.imshow("mask2" , mask2)
         img[:,overlap_mid_line:] = 0
-
-        #mask1 *= (img[: , x:mid_line])
         mask2 *= (img[: , overlap_mid_line-constant:overlap_mid_line])
-        cv2.imshow("img1" , img)
         img[:,:overlap_mid_line-constant] = 255
         img[:,overlap_mid_line-constant:overlap_mid_line] -= np.uint8(mask2)
-        cv2.imshow('mask_L' , img)
-        #cv2.imshow('mask_R' , 255 - img)
-        #cv2.waitKey(0)
         mask_L = cv2.cvtColor( img , cv2.COLOR_GRAY2BGR) 
         mask_R = cv2.cvtColor( 255 - img , cv2.COLOR_GRAY2BGR) 
         
