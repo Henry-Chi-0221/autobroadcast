@@ -33,6 +33,50 @@ def coor_load(np.ndarray[dtype_t, ndim=3 ,mode = 'c']  img_L  ,
     #print("Cython runtime" , time()-s)
     return np.asarray(arr_L)
     #return img_L
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def blending_njit(  np.ndarray[dtype_t, ndim=3 ,mode = 'c'] L,
+                    np.ndarray[dtype_t, ndim=3 ,mode = 'c'] R,
+                    np.ndarray[dtype_t, ndim=3 ,mode = 'c'] mask_L,
+                    np.ndarray[dtype_t, ndim=3 ,mode = 'c'] mask_R ,
+                    int h_l ,int w_l,
+                    int h_r ,int w_r ):
+    
+    cdef Py_ssize_t i, j ,z
+
+    cdef double[:,:,:] arr_L = L
+    cdef double[:,:,:] arr_R = R
+
+    cdef double[:,:,:] arr_mask_L = mask_L
+    cdef double[:,:,:] arr_mask_R = mask_R
+    cdef double[:] zeros = np.zeros((3,))
+    cdef double v
+    for i in prange(h_l,nogil=True):
+        for j in range(w_l):
+            v = arr_mask_L[i][j][0]
+            if v :
+                for z in range(3):
+                    arr_L[i][j][z] *= arr_mask_L[i][j][z] 
+            else:
+                arr_L[i][j] = zeros
+    
+    for i in prange(h_r,nogil=True):
+        for j in range(w_r):
+            v = arr_mask_R[i][j][0]
+            if v :
+                for z in range(3):
+                    arr_R[i][j][z] = arr_mask_R[i][j][z] * arr_R[i][j][z] 
+            else:
+                arr_R[i][j] = zeros
+   
+    for i in prange(h_l,nogil=True):
+        for j in range(w_l):
+            for z in range(3):
+                arr_R[i][j][z] = arr_L[i][j][z] + arr_R[i][j][z]
+            
+    
+    return np.asarray(arr_R)
 """
 @cython.boundscheck(False)
 @cython.wraparound(False)

@@ -7,8 +7,9 @@ import os
 import sys
 from time import time
 from numba import njit , jit
+from cython_simple import blending_njit
 class VideoStitcher:
-    def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=True):
+    def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=False):
         # Initialize arguments
         self.left_video_in_path = left_video_in_path
         self.right_video_in_path = right_video_in_path
@@ -16,47 +17,30 @@ class VideoStitcher:
         self.video_out_width = video_out_width
         self.display = display
         self.save = False
-        # Initialize the saved homography matrix
+        
         self.saved_homo_matrix = None
         
         self.mask_L = None
         self.mask_R = None
     def stitch(self, images, ratio=0.7, reproj_thresh=10.0):
-        # Unpack the images
         (image_b, image_a) = images
         
-        # If the saved homography matrix is None, then we need to apply keypoint matching to construct it
         if self.saved_homo_matrix is None:
-            # Detect keypoints and extract
             (keypoints_a, features_a) = self.detect_and_extract(image_a)
             (keypoints_b, features_b) = self.detect_and_extract(image_b)
 
-            # Match features between the two images
             matched_keypoints = self.match_keypoints(keypoints_a, keypoints_b, features_a, features_b, ratio, reproj_thresh)
 
-            # If the match is None, then there aren't enough matched keypoints to create a panorama
             if matched_keypoints is None:
                 return None
 
-            # Save the homography matrix
             self.saved_homo_matrix = matched_keypoints[1]
 
-        # Apply a perspective transform to stitch the images together using the saved homography matrix
         output_shape = (image_a.shape[1] + image_b.shape[1], image_a.shape[0])
-       
 
         result = cv2.warpPerspective(image_a, self.saved_homo_matrix, output_shape) # 0.006200075149536133 ms
-
-        
-        
         result = self.blending(image_b , result) #0.06116604804992676 ms
         
-        #result[0:image_b.shape[0], 0:image_b.shape[1]] = image_b
-        #cv2.imshow('L' , image_b ) 
-        #cv2.imshow('R' , result) 
-        
-        #self.saved_homo_matrix = None
-        # Return the stitched image
         return result
 
     @staticmethod
@@ -119,6 +103,7 @@ class VideoStitcher:
         return visualisation
 
     def run(self , idx):
+        
         # Set up video capture
         path = f"results/vid_{idx}"
         if self.save:
@@ -143,30 +128,25 @@ class VideoStitcher:
         fps = int(left_video.get(cv2.CAP_PROP_FPS))
         
         while(left_video.isOpened() and right_video.isOpened()):
-            
+            s = time()
         #for _ in tqdm.tqdm(np.arange(n_frames)):
             # Grab the frames from their respective video streams
             ok_l, left = left_video.read()
             ok_r, right = right_video.read()
-
+            
             if ok_l and ok_r:
                 
-                # Stitch the frames together to form the panorama
                 stitched_frame = self.stitch([left, right])
                 
-                # No homography could not be computed
                 if stitched_frame is None:
                     print("[INFO]: Homography could not be computed!")
                     break
-
-                # Add frame to video
-                stitched_frame = imutils.resize(stitched_frame, width=self.video_out_width)
-
+                
                 if self.display:
                     # Show the output images
                     cv2.imshow("Result", stitched_frame)
-                    cv2.imshow("L" , imutils.resize(left, width=800) )
-                    cv2.imshow("R" , imutils.resize(right, width=800) )
+                    cv2.imshow("L" , left )
+                    cv2.imshow("R" , right )
                     #print(left.shape , right.shape , stitched_frame.shape)
                 if self.save:
                     out_L.write(left)
@@ -177,6 +157,7 @@ class VideoStitcher:
                     break
             else:
                 break
+            print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
         out_L.release()
         out_R.release()
         out_res.release()
@@ -184,7 +165,7 @@ class VideoStitcher:
         print('[INFO]: Video stitching finished')
 
     def blending(self, L, R): # 0.056 ms  ,FPS : 18.009
-        s = time()
+        
         
         #L_fake = np.uint8(L * 0.5)
         #R_fake = np.uint8(R * 0.5)
@@ -197,32 +178,33 @@ class VideoStitcher:
             self.mask_L , self.mask_R = np.float64(self.mask_L) , np.float64(self.mask_R) 
             self.mask_L , self.mask_R = self.mask_L[:,:L.shape[1]]/255/255 , self.mask_R/255/255
             self.mask_shape = self.mask_L.shape
-        """
-        ############## 0.024 ms  ,FPS : 42.407
-        L = np.float64(L)/255
-        R = np.float64(R)/255
-        ##############
-
-        ############## 0.028 ms  ,FPS : 35.085
-        L *= np.float64(self.mask_L[:,:L.shape[1]]/255)
-        R *= np.float64(self.mask_R/255)
-        ##############
-        R[0:L.shape[0], 0:L.shape[1]] += L
-        """
+        
         L = np.float64(L)
         R = np.float64(R)
 
-        R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape)
-        print(f"{round(time() - s ,3) } ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
+        R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape[0] , self.mask_shape[1])
         
         return R
     @staticmethod
-    @jit(nopython=True, nogil=True)
-    def blending_njit(L,R,mask_L,mask_R ,shape):
-        L *= mask_L
-        R *= mask_R
-        for i in range(shape[0]):
-            for j in range(shape[1]):
+    @jit('float64[:,:,:](float64[:,:,:],float64[:,:,:],float64[:,:,:],float64[:,:,:],intc,intc)',nopython=True)
+    def blending_njit(L,R,mask_L,mask_R ,h,w):
+        
+        for i in range(L.shape[0]):
+            for j in range(L.shape[1]):
+                k = mask_L[i,j][0]
+                if k :
+                    L[i,j] *= mask_L[i,j]
+                else:
+                    L[i,j] = 0 
+        for i in range(R.shape[0]):
+            for j in range(R.shape[1]):
+                k = mask_R[i,j][0]
+                if k :
+                    R[i,j] *= mask_R[i,j] 
+                else:
+                    R[i,j] = 0 
+        for i in range(h):
+            for j in range(w):
                 R[i,j] += L[i,j]
         return R
 
