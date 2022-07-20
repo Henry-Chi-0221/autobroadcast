@@ -6,6 +6,7 @@ import tqdm
 import os
 import sys
 from time import time
+from numba import njit , jit
 class VideoStitcher:
     def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=True):
         # Initialize arguments
@@ -127,10 +128,10 @@ class VideoStitcher:
             out_R = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 10.0, (1920,  1080))       
             out_res = cv2.VideoWriter(f'{path}/out_res.mp4', fourcc, 10.0, (3840,  1080))  
 
-        #left_video = cv2.VideoCapture(self.left_video_in_path)
-        #right_video = cv2.VideoCapture(self.right_video_in_path)
-        left_video = cv2.VideoCapture(2)
-        right_video = cv2.VideoCapture(1)
+        left_video = cv2.VideoCapture(self.left_video_in_path)
+        right_video = cv2.VideoCapture(self.right_video_in_path)
+        #left_video = cv2.VideoCapture(2)
+        #right_video = cv2.VideoCapture(1)
 
         print('[INFO]: {} and {} loaded'.format(self.left_video_in_path.split('/')[-1],
                                                 self.right_video_in_path.split('/')[-1]))
@@ -170,11 +171,12 @@ class VideoStitcher:
                 if self.save:
                     out_L.write(left)
                     out_R.write(right)
-                    out_res.write(stitched_frame)
+                    out_res.write(np.uint8(stitched_frame))
                 # If the 'q' key was pressed, break from the loop
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
-            
+            else:
+                break
         out_L.release()
         out_R.release()
         out_res.release()
@@ -192,28 +194,38 @@ class VideoStitcher:
 
         if self.mask_L is None :
             self.mask_L , self.mask_R = self.masking(R)
-
-        
+            self.mask_L , self.mask_R = np.float64(self.mask_L) , np.float64(self.mask_R) 
+            self.mask_L , self.mask_R = self.mask_L[:,:L.shape[1]]/255/255 , self.mask_R/255/255
+            self.mask_shape = self.mask_L.shape
+        """
         ############## 0.024 ms  ,FPS : 42.407
         L = np.float64(L)/255
         R = np.float64(R)/255
         ##############
-        #cv2.imshow("L", L)
-        #cv2.imshow("R", R)
-        #cv2.imshow("L_mask" , self.mask_L[:,:L.shape[1]])
-        #cv2.imshow("R_mask" , self.mask_R)
-        #cv2.waitKey(0)
 
         ############## 0.028 ms  ,FPS : 35.085
         L *= np.float64(self.mask_L[:,:L.shape[1]]/255)
         R *= np.float64(self.mask_R/255)
         ##############
-        
         R[0:L.shape[0], 0:L.shape[1]] += L
+        """
+        L = np.float64(L)
+        R = np.float64(R)
+
+        R = self.blending_njit(L,R,self.mask_L,self.mask_R , self.mask_shape)
         print(f"{round(time() - s ,3) } ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
         
         return R
-    
+    @staticmethod
+    @jit(nopython=True, nogil=True)
+    def blending_njit(L,R,mask_L,mask_R ,shape):
+        L *= mask_L
+        R *= mask_R
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                R[i,j] += L[i,j]
+        return R
+
     def masking(self,img):
         
         img = cv2.cvtColor(img , cv2.COLOR_BGR2GRAY)
@@ -252,7 +264,7 @@ class VideoStitcher:
 
 # Example call to 'VideoStitcher'
 
-for i in range(30 ,45):
+for i in range(21 ,45):
     stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_R.mp4',
                          right_video_in_path=f'../videos/vid_{i}/out_L.mp4',
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')
