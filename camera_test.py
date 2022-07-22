@@ -15,23 +15,19 @@ for i in range(10):
     length = len(glob("./videos/*"))+1
     print(f"vid_{length} started !" )
     path = f"./videos/vid_{int(length)}"
-    os.mkdir(path) 
+    #os.mkdir(path) 
 
-    out_1 = cv2.VideoWriter(f'{path}/out_R.mp4', fourcc, 10.0, (1920,  1080))
-    out_2 = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 10.0, (1920,  1080))
+    #out_1 = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 10.0, (1920,  1080))
+    #out_2 = cv2.VideoWriter(f'{path}/out_R.mp4', fourcc, 10.0, (1920,  1080))
     counter = 0
     while(cap_1.isOpened() and cap_2.isOpened()):
         start = time()
         ret_1 , frame_1 = cap_1.read()
         ret_2 , frame_2 = cap_2.read()
-        #print(frame_1.shape , type(frame_1))
-        #print(frame_2.shape , type(frame_2))
-        #print("\m")
 
-        out_1.write(frame_1)
-        out_2.write(frame_2)
+        #out_1.write(frame_1)
+        #out_2.write(frame_2)
         counter += 1
-        #print(counter//10)
         if counter > 10 * 60 and 0:
             break
         cv2.imshow('frame_1',frame_1)
@@ -42,8 +38,7 @@ for i in range(10):
         #print(fps)
     cap_1.release()
     cap_2.release()
-    out_1.release()
-    out_2.release()
+    #out_1.release()
+    #out_2.release()
     cv2.destroyAllWindows()
     print(f"vid_{length} done !" )
-#<class 'numpy.ndarray'> (1080, 3840, 3)

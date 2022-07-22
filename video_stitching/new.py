@@ -4,20 +4,20 @@ import os
 from time import time
 
 class VideoStitcher:
-    def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=False):
+    def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=True):
         # Initialize arguments
         self.left_video_in_path = left_video_in_path
         self.right_video_in_path = right_video_in_path
         self.video_out_path = video_out_path
         self.video_out_width = video_out_width
         self.display = display
-        self.save = False
+        self.save = True
         
         self.saved_homo_matrix = None
         
         self.mask_L = None
         self.mask_R = None
-    def stitch(self, images, ratio=0.7, reproj_thresh=10.0):
+    def stitch(self, images, ratio=0.7, reproj_thresh=20.0):
         (image_b, image_a) = images
         
         if self.saved_homo_matrix is None:
@@ -98,15 +98,13 @@ class VideoStitcher:
         return visualisation
 
     def run(self , idx):
-        
-        # Set up video capture
         path = f"results/vid_{idx}"
         if self.save:
             os.mkdir(path)
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out_L = cv2.VideoWriter(f'{path}/out_R.mp4', fourcc, 10.0, (1920,  1080))
-            out_R = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 10.0, (1920,  1080))       
-            out_res = cv2.VideoWriter(f'{path}/out_res.mp4', fourcc, 10.0, (3840,  1080))  
+            #out_L = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 60.0, (1920,  1080))
+            #out_R = cv2.VideoWriter(f'{path}/out_R.mp4', fourcc, 60.0, (1920,  1080))       
+            out_res = cv2.VideoWriter(f'{path}/out_res.mp4', fourcc, 60.0, (3840,  1080))  
 
         left_video = cv2.VideoCapture(self.left_video_in_path)
         right_video = cv2.VideoCapture(self.right_video_in_path)
@@ -118,10 +116,11 @@ class VideoStitcher:
         print('[INFO]: Video stitching starting....')
 
         # Get information about the videos
+
         n_frames = min(int(left_video.get(cv2.CAP_PROP_FRAME_COUNT)),
                        int(right_video.get(cv2.CAP_PROP_FRAME_COUNT)))
         fps = int(left_video.get(cv2.CAP_PROP_FPS))
-        
+        count = 0
         while(left_video.isOpened() and right_video.isOpened()):
             
             ok_l, left = left_video.read()
@@ -129,30 +128,31 @@ class VideoStitcher:
             if ok_l and ok_r:
                 s = time()
                 stitched_frame = self.stitch([left, right])
-                print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)}" )
+                
+                print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} , {round(count / n_frames * 100 , 1)} %" )
                 if stitched_frame is None:
                     print("[INFO]: Homography could not be computed!")
                     break
                 
-                if self.display:
-                    # Show the output images
-                    cv2.imshow("Result", stitched_frame)
-                    cv2.imshow("L" , left )
-                    cv2.imshow("R" , right )
-                    #print(left.shape , right.shape , stitched_frame.shape)
                 if self.save:
-                    out_L.write(left)
-                    out_R.write(right)
-                    out_res.write(np.uint8(stitched_frame))
+                    #out_L.write(left)
+                    #out_R.write(right)
+                    out_res.write(np.uint8(stitched_frame*255))
                 # If the 'q' key was pressed, break from the loop
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
-            else:
-                break
-            
-        out_L.release()
-        out_R.release()
-        out_res.release()
+                if not self.save:
+                    if self.display:
+                        # Show the output images
+                        cv2.imshow("Result", stitched_frame)
+                        cv2.imshow("L" , left )
+                        cv2.imshow("R" , right )
+                        #print(left.shape , right.shape , stitched_frame.shape)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
+                count += 1
+        if self.save:
+            #out_L.release()
+            #out_R.release()
+            out_res.release()
         cv2.destroyAllWindows()
         print('[INFO]: Video stitching finished')
 
@@ -200,9 +200,15 @@ class VideoStitcher:
         return mask_L , mask_R
 
 # Example call to 'VideoStitcher'
-
-for i in range(21 ,45):
+"""
+for i in range(30 ,45):
     stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_R.mp4',
                          right_video_in_path=f'../videos/vid_{i}/out_L.mp4',
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')
     stitcher.run(i)
+"""
+i = 53
+stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_L.mp4',
+                         right_video_in_path=f'../videos/vid_{i}/out_R.mp4',
+                         video_out_path=f'../videos/vid_{i}/out_res.mp4')
+stitcher.run(i)
