@@ -1,7 +1,13 @@
 import cv2
 import numpy as np
+import cupy as cp
 import os
 from time import time
+
+from torch.utils.dlpack import from_dlpack
+import torch
+
+
 
 class VideoStitcher:
     def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=True):
@@ -11,12 +17,13 @@ class VideoStitcher:
         self.video_out_path = video_out_path
         self.video_out_width = video_out_width
         self.display = display
-        self.save = True
+        self.save = False
         
         self.saved_homo_matrix = None
         
         self.mask_L = None
         self.mask_R = None
+
     def stitch(self, images, ratio=0.7, reproj_thresh=20.0):
         (image_b, image_a) = images
         
@@ -32,7 +39,7 @@ class VideoStitcher:
             self.saved_homo_matrix = matched_keypoints[1]
 
         output_shape = (image_a.shape[1] + image_b.shape[1], image_a.shape[0])
-
+        
         result = cv2.warpPerspective(image_a, self.saved_homo_matrix, output_shape) # 0.006200075149536133 ms
         result = self.blending(image_b , result) #0.06116604804992676 ms
         
@@ -128,8 +135,7 @@ class VideoStitcher:
             if ok_l and ok_r:
                 s = time()
                 stitched_frame = self.stitch([left, right])
-                
-                print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} , {round(count / n_frames * 100 , 1)} %" )
+                #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} , {round(count / n_frames * 100 , 1)} %" )
                 if stitched_frame is None:
                     print("[INFO]: Homography could not be computed!")
                     break
@@ -157,18 +163,36 @@ class VideoStitcher:
         print('[INFO]: Video stitching finished')
 
     def blending(self, L, R): # 0.056 ms  ,FPS : 18.009
+        s = time()
         if self.mask_L is None :
             self.mask_L , self.mask_R = self.masking(R)
             self.mask_L , self.mask_R = np.float64(self.mask_L) , np.float64(self.mask_R) 
             self.mask_L , self.mask_R = self.mask_L[:,:L.shape[1]]/255/255 , self.mask_R/255/255
             self.mask_shape = self.mask_L.shape
-        L = np.float64(L)
-        R = np.float64(R)
-        
-        L *= self.mask_L
-        R *= self.mask_R
-        R[:self.mask_shape[0] , :self.mask_shape[1]] += L
-        
+
+            if self.use_gpu:
+                with cp.cuda.Device(0):
+                    self.mask_L = cp.asarray(self.mask_L , cp.float64)
+                    self.mask_R = cp.asarray(self.mask_R , cp.float64)
+            
+
+        if self.use_gpu:
+            with cp.cuda.Device(0):
+                L_gpu = cp.asarray(L , cp.float64)
+                R_gpu = cp.asarray(R , cp.float64)
+                L_gpu *= self.mask_L
+                R_gpu *= self.mask_R
+                R_gpu[:self.mask_shape[0] , :self.mask_shape[1]] += L_gpu
+                tensor_data = from_dlpack(R_gpu.toDlpack())
+                print(tensor_data.dtype)
+        else:
+            L = np.float64(L)
+            R = np.float64(R)
+            L *= self.mask_L
+            R *= self.mask_R
+            R[:self.mask_shape[0] , :self.mask_shape[1]] += L
+
+        print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
         return R
 
     def masking(self,img):
@@ -207,7 +231,7 @@ for i in range(30 ,45):
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')
     stitcher.run(i)
 """
-i = 53
+i = 21
 stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_L.mp4',
                          right_video_in_path=f'../videos/vid_{i}/out_R.mp4',
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')

@@ -85,6 +85,7 @@ if __name__ == "__main__":
     eptz_control = eptz(width=width , height=height)
     x ,y,z = 640 , 360 ,2
     current_time = time()
+
     while(cap.isOpened()):
         ret , frame = cap.read()
         if not ret:
@@ -95,8 +96,9 @@ if __name__ == "__main__":
             y = random.uniform(0 , 720)
             z = random.uniform(1.5, 3.0)
             current_time = time()
-          
+        s = time()
         src , resized = eptz_control.run(frame,zoom_ratio=z ,x_pos= x,y_pos= y)
+        print(f"{round( (time() - s) * 1000,3)} ms , FPS : {round( 1/(time() - s),3)}")
         cv2.imshow("src" , frame)
         cv2.imshow("resized" , resized)
         if cv2.waitKey(1) & 0xff==ord('q'):
