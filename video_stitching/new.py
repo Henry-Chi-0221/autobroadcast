@@ -24,9 +24,11 @@ class VideoStitcher:
         self.mask_L = None
         self.mask_R = None
 
+        self.use_gpu = True
     def stitch(self, images, ratio=0.7, reproj_thresh=20.0):
+        #s = time()
         (image_b, image_a) = images
-        
+        #print(image_a.dtype ,image_b.dtype)
         if self.saved_homo_matrix is None:
             (keypoints_a, features_a) = self.detect_and_extract(image_a)
             (keypoints_b, features_b) = self.detect_and_extract(image_b)
@@ -39,10 +41,10 @@ class VideoStitcher:
             self.saved_homo_matrix = matched_keypoints[1]
 
         output_shape = (image_a.shape[1] + image_b.shape[1], image_a.shape[0])
-        
+
         result = cv2.warpPerspective(image_a, self.saved_homo_matrix, output_shape) # 0.006200075149536133 ms
         result = self.blending(image_b , result) #0.06116604804992676 ms
-        
+        #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
         return result
 
     @staticmethod
@@ -148,7 +150,7 @@ class VideoStitcher:
                 if not self.save:
                     if self.display:
                         # Show the output images
-                        cv2.imshow("Result", stitched_frame)
+                        #cv2.imshow("Result", stitched_frame)
                         cv2.imshow("L" , left )
                         cv2.imshow("R" , right )
                         #print(left.shape , right.shape , stitched_frame.shape)
@@ -184,6 +186,8 @@ class VideoStitcher:
                 R_gpu *= self.mask_R
                 R_gpu[:self.mask_shape[0] , :self.mask_shape[1]] += L_gpu
                 tensor_data = from_dlpack(R_gpu.toDlpack())
+                
+                return tensor_data
                 print(tensor_data.dtype)
         else:
             L = np.float64(L)
@@ -191,8 +195,6 @@ class VideoStitcher:
             L *= self.mask_L
             R *= self.mask_R
             R[:self.mask_shape[0] , :self.mask_shape[1]] += L
-
-        print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
         return R
 
     def masking(self,img):
@@ -231,7 +233,7 @@ for i in range(30 ,45):
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')
     stitcher.run(i)
 """
-i = 21
+i = 53
 stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_L.mp4',
                          right_video_in_path=f'../videos/vid_{i}/out_R.mp4',
                          video_out_path=f'../videos/vid_{i}/out_res.mp4')
