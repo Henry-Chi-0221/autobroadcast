@@ -7,11 +7,26 @@ import sys
 class timer(object):
     def __init__(self):
         self.start = time()
+        self.records = []
     def reset(self):
         self.start = time()
+        self.records = []
     def show(self):
-        print(f"{round(time() - self.start ,3) * 1000} ms  ,FPS : { round(1 / (time() - self.start ) , 3)} ")
+        if len(self.records)==0:
+            print(f"{round(time() - self.start ,3) * 1000} ms  ,FPS : { round(1 / (time() - self.start ) , 3)} ")
+        else:
+            sum = 0.0
+            for i in self.records:
+                s = f"{round(i[0] ,3) * 1000} ms  ,FPS : { round( i[1],3)}  <- {i[2]}"
+                print(s)
+                sum += i[0]
+            print(f"{round(sum ,3) * 1000} ms  ,FPS : { round( 1/sum,3)}  <- All\n")
 
+    def add_label(self,text):
+        t = time() - self.start
+        fps = 1 / (time() - self.start)
+        self.records.append((t,fps,text))
+        self.start = time()
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,

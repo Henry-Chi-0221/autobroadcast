@@ -1,36 +1,21 @@
-import os
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 import cv2
 from time import time
 
 class VideoStitcher:
-    def __init__(self, left_video_in_path, right_video_in_path, video_out_path, video_out_width=3840, display=True ,gpu=True):
+    def __init__(self,fullsize):
         # Initialize arguments
-        self.left_video_in_path = left_video_in_path
-        self.right_video_in_path = right_video_in_path
-        self.video_out_path = video_out_path
-        self.video_out_width = video_out_width
-        self.display = display
-        self.save = False
-        
         self.saved_homo_matrix = None
         
         self.mask_L = None
         self.mask_R = None
 
-        self.use_gpu = gpu
-
-        self.result = np.zeros((1080,3840,3), np.uint8)
+        self.result = np.zeros((fullsize[1],fullsize[0],3), np.uint8)
         self.image_a = None
         self.image_b = None
         self.output_shape = None
+
     def stitch(self, images, ratio=0.7, reproj_thresh=20.0):
-        
         (image_b, image_a) = images
         #print(image_a.dtype ,image_b.dtype)
         if self.saved_homo_matrix is None:
@@ -109,64 +94,6 @@ class VideoStitcher:
                 cv2.line(visualisation, point_a, point_b, (0, 255, 0), 1)
         return visualisation
 
-    def run(self , idx):
-        path = f"results/vid_{idx}"
-        if self.save:
-            os.mkdir(path)
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            #out_L = cv2.VideoWriter(f'{path}/out_L.mp4', fourcc, 60.0, (1920,  1080))
-            #out_R = cv2.VideoWriter(f'{path}/out_R.mp4', fourcc, 60.0, (1920,  1080))       
-            out_res = cv2.VideoWriter(f'{path}/out_res.mp4', fourcc, 60.0, (3840,  1080))  
-
-        left_video = cv2.VideoCapture(self.left_video_in_path)
-        right_video = cv2.VideoCapture(self.right_video_in_path)
-        #left_video = cv2.VideoCapture(2)
-        #right_video = cv2.VideoCapture(1)
-
-        print('[INFO]: {} and {} loaded'.format(self.left_video_in_path.split('/')[-1],
-                                                self.right_video_in_path.split('/')[-1]))
-        print('[INFO]: Video stitching starting....')
-
-        # Get information about the videos
-
-        n_frames = min(int(left_video.get(cv2.CAP_PROP_FRAME_COUNT)),
-                       int(right_video.get(cv2.CAP_PROP_FRAME_COUNT)))
-        fps = int(left_video.get(cv2.CAP_PROP_FPS))
-        count = 0
-        while(left_video.isOpened() and right_video.isOpened()):
-            
-            ok_l, left = left_video.read()
-            ok_r, right = right_video.read()
-            if ok_l and ok_r:
-                s = time()
-                stitched_frame = self.stitch([left, right])
-                #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} , {round(count / n_frames * 100 , 1)} %" )
-                if stitched_frame is None:
-                    print("[INFO]: Homography could not be computed!")
-                    break
-                
-                if self.save:
-                    #out_L.write(left)
-                    #out_R.write(right)
-                    out_res.write(np.uint8(stitched_frame*255))
-                # If the 'q' key was pressed, break from the loop
-                if not self.save:
-                    if self.display:
-                        # Show the output images
-                        #cv2.imshow("Result", stitched_frame)
-                        cv2.imshow("L" , left )
-                        cv2.imshow("R" , right )
-                        #print(left.shape , right.shape , stitched_frame.shape)
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
-                        break
-                count += 1
-        if self.save:
-            #out_L.release()
-            #out_R.release()
-            out_res.release()
-        cv2.destroyAllWindows()
-        print('[INFO]: Video stitching finished')
-
     def blending(self, L, R): # 0.056 ms  ,FPS : 18.009
         s = time()
         if self.mask_L is None :
@@ -183,34 +110,15 @@ class VideoStitcher:
             #self.mask_L , self.mask_R =  self.mask_L.astype(np.uint8) , self.mask_R.astype(np.uint8) 
             self.mask_shape = self.mask_L.shape
 
-            if self.use_gpu:
-                with cp.cuda.Device(0):
-                    self.mask_L = cp.asarray(self.mask_L , cp.float64)
-                    self.mask_R = cp.asarray(self.mask_R , cp.float64)
-            
-
-        if self.use_gpu:
-            with cp.cuda.Device(0):
-                L_gpu = cp.asarray(L , cp.float64)
-                R_gpu = cp.asarray(R , cp.float64)
-                L_gpu *= self.mask_L
-                R_gpu *= self.mask_R
-                R_gpu[:self.mask_shape[0] , :self.mask_shape[1]] += L_gpu
-                tensor_data = from_dlpack(R_gpu.toDlpack())
-                
-                return tensor_data
-                print(tensor_data.dtype)
-        else:
-            
-            s = time()
-            L = cv2.multiply(L,self.mask_L , dtype=cv2.CV_32S )
-            R = cv2.multiply(R,self.mask_R , dtype=cv2.CV_32S )
-            
-            R[:self.mask_shape[0] , :self.mask_shape[1]] += L
-            
-            #R = cv2.divide(R , 255*np.ones(R.shape) , dtype=cv2.CV_8UC3) #25ms
-            R = (R/255).astype(np.uint8)
-            #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
+        s = time()
+        L = cv2.multiply(L,self.mask_L , dtype=cv2.CV_32S )
+        R = cv2.multiply(R,self.mask_R , dtype=cv2.CV_32S )
+        
+        R[:self.mask_shape[0] , :self.mask_shape[1]] += L
+        
+        #R = cv2.divide(R , 255*np.ones(R.shape) , dtype=cv2.CV_8UC3) #25ms
+        R = (R/255).astype(np.uint8)
+        #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
             
         return R
 
@@ -239,17 +147,6 @@ class VideoStitcher:
         mask_R = cv2.cvtColor( 255 - img , cv2.COLOR_GRAY2BGR) 
         return mask_L , mask_R
 
-# Example call to 'VideoStitcher'
-"""
-for i in range(30 ,45):
-    stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_R.mp4',
-                         right_video_in_path=f'../videos/vid_{i}/out_L.mp4',
-                         video_out_path=f'../videos/vid_{i}/out_res.mp4')
-    stitcher.run(i)
-"""
 if __name__ == "__main__":
-    i = 53
-    stitcher = VideoStitcher(left_video_in_path=f'../videos/vid_{i}/out_L.mp4',
-                            right_video_in_path=f'../videos/vid_{i}/out_R.mp4',
-                            video_out_path=f'../videos/vid_{i}/out_res.mp4')
-    stitcher.run(i)
+    stitcher = VideoStitcher()
+    

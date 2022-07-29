@@ -13,20 +13,22 @@ class targeting(object):
     def __init__(self , width ,height):
         self.x = width // 2
         self.y = height // 2
-        self.center_thres = 200
-        self.ball_player_dist_thres = 200
+        
         self.ball_motion_detection = ball_motion_detection( n=10 , thres=500 )
         self.KMedoids_res = [0,0]
 
+        self.center_thres = 200
+        self.ball_player_dist_thres = 200
         self.ball_missing_timeout = 10
         self.is_ball_exists = False
         self.ball_missing_count = 0
-    def run(self,res):
+
+    def run(self,res ,img):
+        self.img = img
         players = []
         self.is_ball_exists = False
         if len(res)>0:
             for i ,c in enumerate(res):
-
                 if c[5] == 3.0:
                     players.append(((c[0] + c[2])//2,(c[1] + c[3])//2))
                     
@@ -81,10 +83,9 @@ class targeting(object):
         else:
             center = centers[pred]
         
-        for i in centers:# [ [x1,y1] , [x2,y2]  ]
-            cv2.circle(stitched_img ,i.astype(int) , 15,(0,0,255),-1) 
-        cv2.circle(stitched_img ,center.astype(int) , 15,(0,255,255),-1)
-        #(center.astype(int))
+        for i in centers:
+            cv2.circle(self.img ,i.astype(int) , 15,(0,0,255),-1) 
+        cv2.circle(self.img ,center.astype(int) , 15,(0,255,255),-1)
         return center.astype(int)
 
     def draw(self,res,stitched_img,color = (255,255,255)):
@@ -103,73 +104,93 @@ class targeting(object):
     def most_frequent(self,List):
         return max(set(List), key = List.count)
 
+class autobroadcast(object):
+    def __init__(self , model_path , left_path ,right_path , camera_size=[1920,1080] , display = False):
+        self.cap_L = cv2.VideoCapture(left_path)
+        self.cap_R = cv2.VideoCapture(right_path)
+        full_size = int(self.cap_L.get(3)*2) , int(self.cap_L.get(4))
+        self.length = int(self.cap_L.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.stitcher = VideoStitcher(fullsize=full_size)
+
+        self.tg = targeting(width = full_size[0] , height=full_size[1])
+        
+        if cv2.imwrite("black.png" , np.zeros([full_size[0],full_size[1],3])):
+            self.detector = yolov5_detect(source="black.png",
+                                detect_mode='frame_by_frame',
+                                nosave=True,
+                                fbf_output_name="output",
+                                weights=model_path,
+                                imgsz=(320,1280),
+                                half=True,
+                                fbf_close_logger_output=True
+                            )
+        
+        self.eptz_control = eptz(camera_size , full_size)
+
+        self.target = full_size[0]//2 , full_size[1]//2
+        self.display = display
+        
+    def run(self):
+        count = 0
+        while(self.cap_L.isOpened() and self.cap_R.isOpened()):
+            # skipping frames
+            count +=1
+            if count%4 != 0:
+                ret_L , frame_L = self.cap_L.read()
+                _     , frame_R = self.cap_R.read()
+                continue
+            
+            ret_L , frame_L = self.cap_L.read()
+            _     , frame_R = self.cap_R.read()
+            
+            if not ret_L:
+                break
+            else:
+                t = timer()
+
+                #stitch
+                stitched_img = self.stitcher.stitch([frame_L ,frame_R]) #cpu : 52.0 ms  ,FPS : 19.059 ; gpu : 59.0 ms  ,FPS : 16.876 
+                t.add_label("Image stitching")
+
+                #Object detection
+                self.detector.run(stitched_img) 
+                res = self.detector.pred_np
+                t.add_label("Object detection")
+
+                # Logic part
+                self.target = self.tg.run(res ,stitched_img)
+                self.tg.draw(res,stitched_img=stitched_img)
+                t.add_label("Targeting")
+
+                # ePTZ
+                src , resized = self.eptz_control.run(stitched_img , 1.1, self.target[0] , self.target[1])
+                t.add_label("ePTZ")
+                
+                t.show()
+                
+                if self.display:
+                    cv2.imshow('tracked' ,cv2.resize(resized , (resized.shape[1]//2 , resized.shape[0]//2  )) )
+                    cv2.imshow('stitched' , cv2.resize(stitched_img , (stitched_img.shape[1]//2 , stitched_img.shape[0]//2  )) )
+                    if cv2.waitKey(1) & 0xff==ord('q'):
+                        break
+                
+
 if __name__ == "__main__":
     #model_path = './models/HEAVY_basketball.pt'
     #model_path = './models/HEAVY_basketball.engine'
     #model_path = './models/0719_player_heavy.engine'
     #detector = object_detector(model_path=model_path, width=3840 , height=1080 , imgsz=(1280,320))
-    model_path = './models/0725_best_model.engine'
-    tg = targeting(width = 3840 , height=1080)
-    
-    detector = yolov5_detect(source="black.png",
-                            detect_mode='frame_by_frame',
-                            nosave=True,
-                            fbf_output_name="output",
-                            weights=model_path,
-                            imgsz=(320,1280),
-                            half=True,
-                            fbf_close_logger_output=True
-                           )
     
     i = 53
     left_path = f'./videos/vid_{i}/out_L.mp4'
     right_path = f'./videos/vid_{i}/out_R.mp4'
-    cap_L = cv2.VideoCapture(left_path)
-    cap_R = cv2.VideoCapture(right_path)
-    length = int(cap_L.get(cv2.CAP_PROP_FRAME_COUNT))
-    stitcher = VideoStitcher(
-                        left_video_in_path=f'./videos/vid_{i}/out_L.mp4',
-                        right_video_in_path=f'./videos/vid_{i}/out_R.mp4',
-                        video_out_path=f'./videos/vid_{i}/out_res.mp4',
-                        gpu=False
-                        )
-    
-    eptz_control = eptz(width=1920 , height=1080)
 
-    count = 0
-    x,y = 1920,540
-    while(cap_L.isOpened() and cap_R.isOpened()):
-        # skipping frames
-        count +=1
-        if count%4 != 0:
-            ret_L , frame_L = cap_L.read()
-            _     , frame_R = cap_R.read()
-            continue
-        
-        ret_L , frame_L = cap_L.read()
-        _     , frame_R = cap_R.read()
-        
-        if not ret_L:
-            break
-        else:
-            
-            stitched_img = stitcher.stitch([frame_L ,frame_R]) #cpu : 52.0 ms  ,FPS : 19.059 ; gpu : 59.0 ms  ,FPS : 16.876 
-            
-            t = timer()
-            detector.run(stitched_img) 
-            #t.show()
-            res = detector.pred_np
+    model_path = './models/0725_best_model.engine'
 
-            # Logic part
-            x,y= tg.run(res)
-
-            tg.draw(res,stitched_img=stitched_img)
-            src , resized = eptz_control.run(stitched_img , 1.1, x , y)
-            #t.show()
-            
-            cv2.imshow('tracked' ,cv2.resize(resized , (1920//2 , 1080//2  )) )
-            
-            cv2.imshow('stitched' , cv2.resize(stitched_img , (3840//2 , 1080//2  )) )
-            print(f"{round(count / length *100)} %")
-            cv2.waitKey(1)
+    bs = autobroadcast(model_path = model_path,
+                        left_path = left_path,
+                        right_path = right_path,
+                        camera_size = [1920,1080],
+                        display=True)
+    bs.run()
             

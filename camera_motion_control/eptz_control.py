@@ -5,9 +5,11 @@ import random
 import numpy as np
 
 class eptz(object):
-    def __init__(self ,width , height):
-        self.width = int(width)
-        self.height = int(height)
+    def __init__(self ,size,fullsize):
+        self.width , self.height = size
+        self.full_width ,self.full_height = fullsize
+        #self.width = int(width)
+        #self.height = int(height)
 
         # PID parameters
         self.kp = 0.005
@@ -42,9 +44,9 @@ class eptz(object):
         return x1,y1,x2,y2
 
     def run(self ,img, zoom_ratio = 1  , x_pos =0 , y_pos = 0):
-        
+        #self.width * ( 1*2 -0.5*(1/self.current_zoom)) = self.full_width - 
         pid_x = self.pid(x_pos , self.current_x)
-        if  self.width*0.5*(1/self.current_zoom) < self.current_x + pid_x < self.width*( 1*2 -0.5*(1/self.current_zoom))  : #here!!
+        if  self.width*0.5*(1/self.current_zoom) < self.current_x + pid_x <   self.full_width - self.width * (0.5*(1/self.current_zoom))  : #here!!
             self.current_x += pid_x
         
         pid_y = self.pid(y_pos , self.current_y) # target current
@@ -56,14 +58,14 @@ class eptz(object):
         #here !!!
         if  (0 < self.current_zoom + pid_zoom < 3) and \
             (self.current_x - self.width*0.5*(1/self.current_zoom) )>= 0  and \
-            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width *2 and\
+            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width * 2 and\
             self.current_y - self.height*0.5*(1/self.current_zoom) >= 0  and \
             self.current_y + self.height*0.5*(1/self.current_zoom) <= self.height:
 
             self.current_zoom += pid_zoom
         
         x1,y1,x2,y2 = self.zoom(zoom_ratio=self.current_zoom,x_offset=self.current_x,y_offset=self.current_y) #x
-        res_x = np.clip(np.array([x1,x2]) , 0 , self.width*2)
+        res_x = np.clip(np.array([x1,x2]) , 0 , self.full_width)
         res_y = np.clip(np.array([y1,y2]) , 0 , self.height)
         (x1,x2), (y1,y2) = res_x[:] , res_y[:]
         
