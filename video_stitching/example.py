@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import random
-from utils import load_imgs_heic , load_img_kitti
+from util import load_imgs_heic , load_img_kitti
 from time import time
 import cupy as cp
 from cython_simple import coor_load

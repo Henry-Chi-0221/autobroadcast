@@ -9,9 +9,9 @@ class eptz(object):
         self.width = int(width)
         self.height = int(height)
 
-         # PID parameters
+        # PID parameters
         self.kp = 0.005
-        self.ki = 0.2
+        self.ki = 0.5
         self.kd = 0.1
 
         self.current_x = self.width//2
@@ -44,9 +44,7 @@ class eptz(object):
     def run(self ,img, zoom_ratio = 1  , x_pos =0 , y_pos = 0):
         
         pid_x = self.pid(x_pos , self.current_x)
-        #y_offset += self.height //2
-
-        if  self.width*0.5*(1/self.current_zoom) < self.current_x + pid_x < self.width*(1-0.5*(1/self.current_zoom)):
+        if  self.width*0.5*(1/self.current_zoom) < self.current_x + pid_x < self.width*( 1*2 -0.5*(1/self.current_zoom))  : #here!!
             self.current_x += pid_x
         
         pid_y = self.pid(y_pos , self.current_y) # target current
@@ -54,25 +52,26 @@ class eptz(object):
             self.current_y += pid_y
         
         pid_zoom = self.pid(zoom_ratio , self.current_zoom)
-        #print((self.current_x + self.width*0.5*(1/self.current_zoom) ))
+        
+        #here !!!
         if  (0 < self.current_zoom + pid_zoom < 3) and \
             (self.current_x - self.width*0.5*(1/self.current_zoom) )>= 0  and \
-            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width and\
+            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width *2 and\
             self.current_y - self.height*0.5*(1/self.current_zoom) >= 0  and \
             self.current_y + self.height*0.5*(1/self.current_zoom) <= self.height:
 
             self.current_zoom += pid_zoom
         
         x1,y1,x2,y2 = self.zoom(zoom_ratio=self.current_zoom,x_offset=self.current_x,y_offset=self.current_y) #x
-        
-        res_x = np.clip(np.array([x1,x2]) , 0 , self.width)
+        res_x = np.clip(np.array([x1,x2]) , 0 , self.width*2)
         res_y = np.clip(np.array([y1,y2]) , 0 , self.height)
         (x1,x2), (y1,y2) = res_x[:] , res_y[:]
         
+        cv2.rectangle(img , (x1,y1) , (x2,y2) , (0,255,255) , 2)
+        cv2.circle(img , (int(x_pos) , int(y_pos)) , 15 ,(0,255,0) , -1)
+        cv2.circle(img , ((x1+x2)//2 , (y1+y2)//2) , 15 ,(255,255,255) , 2)
         
-        cv2.rectangle(img , (x1,y1) , (x2,y2) , (255,255,255) , 3)
-        
-        
+        #print( round(((x2-x1) / (y2-y1)),2) == round((1920/1080),2) )
         resized = cv2.resize(img[y1:y2,x1:x2] , (self.width , self.height))
         
         return img ,resized

@@ -21,11 +21,11 @@ import yaml
 from PIL import Image
 from torch.cuda import amp
 
-from yolov5.utils.dataloaders import exif_transpose, letterbox
-from yolov5.utils.general import (LOGGER, check_requirements, check_suffix, check_version, colorstr, increment_path,
+from utils.dataloaders import exif_transpose, letterbox
+from utils.general import (LOGGER, check_requirements, check_suffix, check_version, colorstr, increment_path,
                            make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
-from yolov5.utils.plots import Annotator, colors, save_one_box
-from yolov5.utils.torch_utils import copy_attr, time_sync
+from utils.plots import Annotator, colors, save_one_box
+from utils.torch_utils import copy_attr, time_sync
 
 
 def autopad(k, p=None):  # kernel, padding
@@ -579,26 +579,7 @@ class AutoShape(nn.Module):
         p = next(self.model.parameters()) if self.pt else torch.zeros(1, device=self.model.device)  # for device, type
         autocast = self.amp and (p.device.type != 'cpu')  # Automatic Mixed Precision (AMP) inference
         if isinstance(imgs, torch.Tensor):  # torch
-            
             with amp.autocast(autocast):
-                
-                y = self.model(imgs.to(p.device).type_as(p), augment, profile)   # forward
-                t.append(time_sync())
-
-                # Post-process
-                y = non_max_suppression(y if self.dmb else y[0],
-                                        self.conf,
-                                        self.iou,
-                                        self.classes,
-                                        self.agnostic,
-                                        self.multi_label,
-                                        max_det=self.max_det)  # NMS
-                #for i in range(n):
-                #    scale_coords(shape1, y[i][:, :4], shape0[i])
-
-                t.append(time_sync())
-                return Detections(imgs, y, "", (0, 0, 0, 0), self.names, None)
-
                 return self.model(imgs.to(p.device).type_as(p), augment, profile)  # inference
 
         # Pre-process

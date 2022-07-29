@@ -28,11 +28,11 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
     """
     from pathlib import Path
 
-    from yolov5.models.common import AutoShape, DetectMultiBackend
-    from yolov5.models.yolo import Model
-    from yolov5.utils.downloads import attempt_download
-    from yolov5.utils.general import LOGGER, check_requirements, intersect_dicts, logging
-    from yolov5.utils.torch_utils import select_device
+    from models.common import AutoShape, DetectMultiBackend
+    from models.yolo import Model
+    from utils.downloads import attempt_download
+    from utils.general import LOGGER, check_requirements, intersect_dicts, logging
+    from utils.torch_utils import select_device
 
     if not verbose:
         LOGGER.setLevel(logging.WARNING)
@@ -57,6 +57,8 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
                     model.names = ckpt['model'].names  # set class names attribute
         if autoshape:
             model = AutoShape(model)  # for file/URI/PIL/cv2/np inputs and NMS
+        if not verbose:
+            LOGGER.setLevel(logging.INFO)  # reset to default
         return model.to(device)
 
     except Exception as e:
