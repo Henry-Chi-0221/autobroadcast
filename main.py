@@ -6,9 +6,10 @@ from video_stitching.video_stitcher import VideoStitcher
 from camera_motion_control.eptz_control import eptz
 from yolov5_detect import yolov5_detect
 
+
 from util import plot_one_box , timer ,ball_motion_detection ,eptz_random
 from math import sqrt
-
+from time import sleep
 class targeting(object):
     def __init__(self , 
                 width ,
@@ -31,6 +32,8 @@ class targeting(object):
         self.is_ball_exists = False
         self.KMedoids_res = [0,0]
         self.ball_missing_count = 0
+
+        self.y_boundary = [0,800]
     def run(self,res ,img):
         self.img = img
         players = []
@@ -40,7 +43,7 @@ class targeting(object):
                 if c[5] == 3.0:
                     players.append(((c[0] + c[2])//2,(c[1] + c[3])//2))
                     
-                if c[5] == 1.0:
+                if c[5] == 1.0 and self.y_boundary[0] < (c[1] + c[3])//2 < self.y_boundary[1]:
 
                     self.is_ball_exists = True
                     self.ball_missing_count = 0
@@ -77,7 +80,8 @@ class targeting(object):
             
             if len(players)>2:
                 self.KMedoids_res = self.player_KMedoids(np.asarray(players))
-                
+        cv2.line(img , (0,self.y_boundary[0]),(self.width,self.y_boundary[0]) , (255,0,0) ,5)
+        cv2.line(img , (0,self.y_boundary[1]),(self.width,self.y_boundary[1]) , (255,0,0) ,5)
         return self.x,self.y
 
     def player_KMedoids(self,players):
@@ -128,7 +132,7 @@ class autobroadcast(object):
             full_size = int(self.cap_L.get(3)*2) , int(self.cap_L.get(4))
         else:
             full_size = int(self.cap_L.get(3)) , int(self.cap_L.get(4))
-
+        full_size = (1920,1080)
         self.length = int(self.cap_L.get(cv2.CAP_PROP_FRAME_COUNT))
 
         self.stitcher = VideoStitcher(fullsize=full_size , initial_frame_count=20)
@@ -146,7 +150,7 @@ class autobroadcast(object):
                                 half=True,
                                 fbf_close_logger_output=True
                             )
-            self.detector.conf_thres = 0.5
+            self.detector.conf_thres = 0.15
         self.eptz_control = eptz(
                                 size = camera_size, 
                                 fullsize = full_size,
@@ -182,6 +186,7 @@ class autobroadcast(object):
 
                 #stitch
                 #stitched_img = self.stitcher.stitch([frame_L ,frame_R]) #cpu : 52.0 ms  ,FPS : 19.059 ; gpu : 59.0 ms  ,FPS : 16.876 
+                frame_L = cv2.resize(frame_L , (1920,1080))
                 stitched_img = frame_L
                 t.add_label("Image stitching")
                 
@@ -192,7 +197,7 @@ class autobroadcast(object):
 
                 # Logic part
                 self.target = self.tg.run(res ,stitched_img)
-                self.tg.draw(res,stitched_img=stitched_img)
+                #self.tg.draw(res,stitched_img=stitched_img)
                 t.add_label("Targeting")
                 
                 # ePTZ
@@ -214,7 +219,7 @@ class autobroadcast(object):
                     cv2.imshow('stitched' , cv2.resize(stitched_img , (stitched_img.shape[1]//2 , stitched_img.shape[0]//2  )) )
                     if cv2.waitKey(1) & 0xff==ord('q'):
                         break
-                
+            sleep(0.015)    
 
 if __name__ == "__main__":
     #model_path = './models/HEAVY_basketball.pt'
@@ -222,8 +227,8 @@ if __name__ == "__main__":
     #model_path = './models/0719_player_heavy.engine'
     #detector = object_detector(model_path=model_path, width=3840 , height=1080 , imgsz=(1280,320))
     
-    i = 55
-    left_path = f'./videos/vid_{i}/out_R.mp4'
+    i = 56
+    left_path = f'./videos/vid_{i}/out_L.mp4'
     right_path = f'./videos/vid_{i}/out_R.mp4'
 
     model_path = './models/0725_best_model.engine'
