@@ -5,21 +5,22 @@ import random
 import numpy as np
 
 class eptz(object):
-    def __init__(self ,size,fullsize):
+    def __init__(self ,size,fullsize ,kp,ki,kd,debug=False):
         self.width , self.height = size
         self.full_width ,self.full_height = fullsize
         #self.width = int(width)
         #self.height = int(height)
 
         # PID parameters
-        self.kp = 0.005
-        self.ki = 0.5
-        self.kd = 0.1
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
 
         self.current_x = self.width//2
         self.current_y = self.height//2
         self.current_zoom = 1
 
+        self.debug = debug
     def pid(self,target,current):
         des_point = target
         pid = PID( 
@@ -33,7 +34,6 @@ class eptz(object):
         return pid_output
             
     def zoom(self,zoom_ratio = 1  , x_offset =0 , y_offset = 0):
-        x_center,y_center = self.width//2 , self.height//2
         width = self.width//zoom_ratio
         height = self.height//zoom_ratio
         x_center = x_offset
@@ -50,30 +50,29 @@ class eptz(object):
             self.current_x += pid_x
         
         pid_y = self.pid(y_pos , self.current_y) # target current
-        if  self.height*0.5*(1/self.current_zoom) < self.current_y + pid_y < self.height*(1-0.5*(1/self.current_zoom)):
+        if  self.height*0.5*(1/self.current_zoom) < self.current_y + pid_y < self.full_height - self.height * (0.5*(1/self.current_zoom)):
             self.current_y += pid_y
-        
+            
         pid_zoom = self.pid(zoom_ratio , self.current_zoom)
         
         #here !!!
         if  (0 < self.current_zoom + pid_zoom < 3) and \
             (self.current_x - self.width*0.5*(1/self.current_zoom) )>= 0  and \
-            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.width * 2 and\
+            (self.current_x + self.width*0.5*(1/self.current_zoom) )<= self.full_width and\
             self.current_y - self.height*0.5*(1/self.current_zoom) >= 0  and \
-            self.current_y + self.height*0.5*(1/self.current_zoom) <= self.height:
+            self.current_y + self.height*0.5*(1/self.current_zoom) <= self.full_height :
 
             self.current_zoom += pid_zoom
         
         x1,y1,x2,y2 = self.zoom(zoom_ratio=self.current_zoom,x_offset=self.current_x,y_offset=self.current_y) #x
         res_x = np.clip(np.array([x1,x2]) , 0 , self.full_width)
-        res_y = np.clip(np.array([y1,y2]) , 0 , self.height)
+        res_y = np.clip(np.array([y1,y2]) , 0 , self.full_height)
         (x1,x2), (y1,y2) = res_x[:] , res_y[:]
+        if self.debug:
+            cv2.rectangle(img , (x1,y1) , (x2,y2) , (0,255,255) , 2)
+            cv2.circle(img , (int(x_pos) , int(y_pos)) , 15 ,(0,255,0) , -1)
+            cv2.circle(img , ((x1+x2)//2 , (y1+y2)//2) , 15 ,(255,255,255) , 2)
         
-        cv2.rectangle(img , (x1,y1) , (x2,y2) , (0,255,255) , 2)
-        cv2.circle(img , (int(x_pos) , int(y_pos)) , 15 ,(0,255,0) , -1)
-        cv2.circle(img , ((x1+x2)//2 , (y1+y2)//2) , 15 ,(255,255,255) , 2)
-        
-        #print( round(((x2-x1) / (y2-y1)),2) == round((1920/1080),2) )
         resized = cv2.resize(img[y1:y2,x1:x2] , (self.width , self.height))
         
         return img ,resized

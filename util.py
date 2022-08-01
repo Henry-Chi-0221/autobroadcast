@@ -81,7 +81,19 @@ class ball_motion_detection(object):
     def check_score(self):
         return  self.ball_score>self.ball_thres
             
+class eptz_random(object):
+    def __init__(self , x=3840,y=1080,z=1.5):
+        self.current = time()
+        self.x ,self.y , self.z = x,y,z
 
+    def update(self):
+        if (time() - self.current )>5:
+            x = random.uniform(0 , self.x)
+            y = random.uniform(0 , self.y)
+            z = random.uniform(1, self.z)
+            self.current = time()
+            return x,y,z
+        return False
 if __name__ == "__main__":
     current = time()
     bmd = ball_motion_detection(n=5)

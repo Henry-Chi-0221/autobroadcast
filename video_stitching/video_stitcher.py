@@ -3,7 +3,7 @@ import cv2
 from time import time
 
 class VideoStitcher:
-    def __init__(self,fullsize):
+    def __init__(self,fullsize ,initial_frame_count = 20):
         # Initialize arguments
         self.saved_homo_matrix = None
         
@@ -14,29 +14,42 @@ class VideoStitcher:
         self.image_a = None
         self.image_b = None
         self.output_shape = None
+        
+        self.count = 1
+        self.initial_frame_count = initial_frame_count
+    def train_homography_mat(self,image_a , image_b,ratio=0.7, reproj_thresh=20.0):
+        
+        (keypoints_a, features_a) = self.detect_and_extract(image_a)
+        (keypoints_b, features_b) = self.detect_and_extract(image_b)
 
+        matched_keypoints = self.match_keypoints(keypoints_a, keypoints_b, features_a, features_b, ratio, reproj_thresh)
+
+        if matched_keypoints is None:
+            return None
+
+        if self.saved_homo_matrix is None:
+            self.saved_homo_matrix = matched_keypoints[1]
+        else:
+            self.saved_homo_matrix = (self.saved_homo_matrix * self.count + matched_keypoints[1]) / (self.count+1)
+            self.count +=1
     def stitch(self, images, ratio=0.7, reproj_thresh=20.0):
         (image_b, image_a) = images
         #print(image_a.dtype ,image_b.dtype)
-        if self.saved_homo_matrix is None:
-            (keypoints_a, features_a) = self.detect_and_extract(image_a)
-            (keypoints_b, features_b) = self.detect_and_extract(image_b)
-
-            matched_keypoints = self.match_keypoints(keypoints_a, keypoints_b, features_a, features_b, ratio, reproj_thresh)
-
-            if matched_keypoints is None:
-                return None
-
-            self.saved_homo_matrix = matched_keypoints[1]
         
         self.image_a = image_a
         self.image_b = image_b
+        if self.count < self.initial_frame_count :
+            #print(self.count)
+            self.train_homography_mat(image_a , image_b,ratio, reproj_thresh)
+        
+
         if (self.image_a is not None) and (self.output_shape is None):
             self.output_shape = (self.image_a.shape[1] + self.image_b.shape[1], self.image_a.shape[0])
         
         cv2.warpPerspective(self.image_a, self.saved_homo_matrix, self.output_shape , dst = self.result, flags=cv2.INTER_NEAREST) # 0.006200075149536133 ms
         s = time()
         self.result = self.blending(self.image_b , self.result) #0.06116604804992676 ms
+
         #print(f"{round(time() - s ,3) *1000} ms  ,FPS : { round(1 / (time() - s ) , 3)} ")
         #print(self.result)
         return self.result
@@ -64,7 +77,6 @@ class VideoStitcher:
             # Ensure the distance is within a certain ratio of each other (i.e. Lowe's ratio test)
             if len(raw_match) == 2 and raw_match[0].distance < raw_match[1].distance * ratio:
                 matches.append((raw_match[0].trainIdx, raw_match[0].queryIdx))
-        print(len(matches))
         # Computing a homography requires at least 4 matches
         if len(matches) > 4:
             # Construct the two sets of points
@@ -136,7 +148,7 @@ class VideoStitcher:
         (x, y, w, h) = cv2.boundingRect(cnts[id]) 
         mid_line = (img.shape[1]//2)
         overlap_mid_line  = (mid_line + x)//2
-        constant = 100
+        constant = 50
         #mask1 = np.repeat(np.tile(np.linspace(0, 1, mid_line - x ), (img.shape[0], 1))[:, :, np.newaxis], 1, axis=2)[:,:,0]
         mask2 = np.repeat(np.tile(np.linspace(0, 1, constant), (img.shape[0], 1))[:, :, np.newaxis], 1, axis=2)[:,:,0]
         img[:,overlap_mid_line:] = 0
