@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ "$1" = "" ]
 then
-    echo "Please enter the class_num"
+    echo "Please enter the name of model."
     exit
 fi
 
