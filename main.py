@@ -26,7 +26,7 @@ class targeting(object):
         self.ball_player_dist_thres = 500
         self.ball_missing_timeout = 120
 
-        ball_sample_rate = 60
+        ball_sample_rate = 30
         ball_energy_thresh = 40
         ############
         self.ball_motion_detection = ball_motion_detection( n = ball_sample_rate , thres = ball_energy_thresh )
