@@ -15,6 +15,8 @@ class targeting(object):
                 width ,
                 height, 
             ):
+        self.width = width
+        self.height = height
         self.x = width // 2
         self.y = height // 2
         
