@@ -3,7 +3,7 @@ import cv2
 from time import time
 import random
 import numpy as np
-
+from util import remap
 class eptz(object):
     def __init__(self ,size,fullsize ,kp,ki,kd,debug=False):
         self.width , self.height = size
@@ -77,7 +77,22 @@ class eptz(object):
         
         return img ,resized
         
-
+    def zoom_follow_x(self ,target, zoom_value , width ,height ,zoom_range,width_for_zoom ,debug = False,img = None):
+        
+        center = width//2 
+        
+        boundary = center - width_for_zoom*width ,center + width_for_zoom*width
+        
+        if debug and img is not None:
+            cv2.line(img , (int(boundary[0]),0),(int(boundary[0]),height) , (0,255,0) ,5)
+            cv2.line(img , (int(boundary[1]),0),(int(boundary[1]),height) , (0,255,0) ,5)
+        if not boundary[0]<target[0]<boundary[1]:
+            if target[0] > boundary[1]:
+                diff_abs = target[0] - boundary[1]
+            else:
+                diff_abs = boundary[0] - target[0]
+            zoom_value = remap(diff_abs , 0,(0.5-width_for_zoom)*width , zoom_range[0],zoom_range[1])
+        return zoom_value
 if __name__ == "__main__":
     cap = cv2.VideoCapture('test.mp4')
     width  = cap.get(cv2.CAP_PROP_FRAME_WIDTH)

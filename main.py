@@ -7,7 +7,7 @@ from camera_motion_control.eptz_control import eptz
 from yolov5_detect import yolov5_detect
 
 
-from util import plot_one_box , timer ,ball_motion_detection ,eptz_random
+from util import plot_one_box, timer, ball_motion_detection, eptz_random, remap ,recorder
 from math import sqrt
 from time import sleep
 class targeting(object):
@@ -34,7 +34,7 @@ class targeting(object):
         self.is_ball_exists = False
         self.KMedoids_res = [0,0]
         self.ball_missing_count = 0
-
+        
         self.y_boundary = [0,800]
     def run(self,res ,img):
         self.img = img
@@ -82,8 +82,10 @@ class targeting(object):
             
             if len(players)>2:
                 self.KMedoids_res = self.player_KMedoids(np.asarray(players))
+        """
         cv2.line(img , (0,self.y_boundary[0]),(self.width,self.y_boundary[0]) , (255,0,0) ,5)
         cv2.line(img , (0,self.y_boundary[1]),(self.width,self.y_boundary[1]) , (255,0,0) ,5)
+        """
         return self.x,self.y
 
     def player_KMedoids(self,players):
@@ -126,7 +128,8 @@ class autobroadcast(object):
                 right_path , 
                 camera_size=[1920,1080] ,
                 display = False ,
-                single_cam = False
+                single_cam = False,
+                record = False
         ):
         self.cap_L = cv2.VideoCapture(left_path)
         self.cap_R = cv2.VideoCapture(right_path)
@@ -135,6 +138,7 @@ class autobroadcast(object):
         else:
             full_size = int(self.cap_L.get(3)) , int(self.cap_L.get(4))
         full_size = (1920,1080)
+        self.full_size = full_size
         self.length = int(self.cap_L.get(cv2.CAP_PROP_FRAME_COUNT))
 
         self.stitcher = VideoStitcher(fullsize=full_size , initial_frame_count=20)
@@ -156,7 +160,7 @@ class autobroadcast(object):
         self.eptz_control = eptz(
                                 size = camera_size, 
                                 fullsize = full_size,
-                                kp = 0.01,
+                                kp = 0.02,
                                 ki = 0.02,
                                 kd = 0.45,
                                 debug = True
@@ -166,9 +170,13 @@ class autobroadcast(object):
         self.random_value = full_size[0]//2 , full_size[1]//2 , 1.1
         self.target = full_size[0]//2 , full_size[1]//2
         self.display = display
-        
+        self.record = record
+        if self.record:
+            self.recorder = recorder(full_size , camera_size , 30)
     def run(self):
         count = 0
+        fake = [960,540]
+        top = False
         while(self.cap_L.isOpened()):
             # skipping frames
             count +=1
@@ -210,8 +218,32 @@ class autobroadcast(object):
                     self.random_value = n
                 src , resized = self.eptz_control.run(stitched_img , self.random_value[2], self.random_value[0] , self.random_value[1])
                 """
-
-                src , resized = self.eptz_control.run(stitched_img , 1.5, self.target[0] , self.target[1])
+                #self ,target, zoom_value , width ,height ,zoom_range,width_for_zoom ,debug = False)
+                zoom_value = 1.5
+                width_for_zoom =  0.1
+                zoom_range = (zoom_value,3)
+                
+                zoom_value = self.eptz_control.zoom_follow_x(target = (self.eptz_control.current_x ,self.eptz_control.current_y) , 
+                                                             zoom_value = zoom_value ,
+                                                             width = self.full_size[0] ,
+                                                             height = self.full_size[1] ,
+                                                             zoom_range = zoom_range,
+                                                             width_for_zoom = width_for_zoom,
+                                                             debug = False,
+                                                             img = stitched_img
+                                                            )
+                #print(zoom_value)
+                k=5
+                if (not top) and fake[0] < 1920:
+                    fake[0] +=5
+                elif top and fake[0] > 0:
+                    fake[0] -=5
+                if fake[0] == 1920 :
+                    top = True
+                elif fake[0] == 0:
+                    top = False
+                src , resized = self.eptz_control.run(stitched_img , zoom_value, self.target[0] , self.target[1])
+                #src , resized = self.eptz_control.run(stitched_img , zoom_value, fake[0] , fake[1])
                 t.add_label("ePTZ")
                 
                 t.show()
@@ -221,8 +253,11 @@ class autobroadcast(object):
                     cv2.imshow('stitched' , cv2.resize(stitched_img , (stitched_img.shape[1]//2 , stitched_img.shape[0]//2  )) )
                     if cv2.waitKey(1) & 0xff==ord('q'):
                         break
-            sleep(0.015)    
-
+                if self.record:
+                    self.recorder.write(stitched_img , resized)
+                
+            #sleep(0.015)    
+        self.recorder.release()
 if __name__ == "__main__":
     #model_path = './models/HEAVY_basketball.pt'
     #model_path = './models/HEAVY_basketball.engine'
@@ -240,6 +275,8 @@ if __name__ == "__main__":
                         right_path = right_path,
                         camera_size = [1920,1080],
                         display=True,
-                        single_cam=True)
+                        single_cam=True,
+                        record = False)
+    
     bs.run()
             

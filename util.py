@@ -2,8 +2,9 @@ import random
 import cv2
 from matplotlib.pyplot import axis
 import numpy as np
-from time import time,sleep
+from time import *
 import sys
+import os
 class timer(object):
     def __init__(self):
         self.start = time()
@@ -94,20 +95,36 @@ class eptz_random(object):
             self.current = time()
             return x,y,z
         return False
-if __name__ == "__main__":
-    current = time()
-    bmd = ball_motion_detection(n=5)
-    pos = np.random.rand(2).tolist()
+def remap(value, leftMin, leftMax, rightMin, rightMax):
+    # Figure out how 'wide' each range is
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
 
-    while(1):
-        if time() - current > 2:
-            print("move !!!")
-            pos = np.random.rand(2).tolist()
-            print(pos)
-            current = time()
-        #print(pos)
-        #pos = [1,20]
-        #print(pos)
-        bmd.update(pos)
-        print(bmd.ball_score)
-        sleep(0.1)
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / float(leftSpan)
+
+    # Convert the 0-1 range into a value in the right range.
+    return rightMin + (valueScaled * rightSpan)
+
+class recorder():
+    def __init__(self ,full_size , camera_size, fps):
+        t =  strftime("%Y_%m_%d_%H_%M_%S")
+
+        t1 = "results/" + t + "_1.mp4"
+        t2 = "results/" + t + "_2.mp4"
+        
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+
+        self.out_1 = cv2.VideoWriter(t1, fourcc, fps, full_size)  
+        self.out_2 = cv2.VideoWriter(t2, fourcc, fps, camera_size)  
+
+    def write(self ,frame_1 , frame_2):
+        self.out_1.write(frame_1)
+        self.out_2.write(frame_2)
+
+    def release(self):
+        self.out_1.release()
+        self.out_2.release()
+if __name__ == "__main__":
+    s = strftime("%Y_%m_%d_%H_%M_%S") + ".mp4"
+    print(s)
