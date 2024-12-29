@@ -5,6 +5,20 @@ import numpy as np
 from time import *
 import sys
 import os
+
+
+
+def remap(value, leftMin, leftMax, rightMin, rightMax):
+    # Figure out how 'wide' each range is
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
+
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / float(leftSpan)
+
+    # Convert the 0-1 range into a value in the right range.
+    return rightMin + (valueScaled * rightSpan)
+
 class timer(object):
     def __init__(self):
         self.start = time()
@@ -75,13 +89,38 @@ class ball_motion_detection(object):
         else:
             np_arr = np.array(self.arr)
             std = np.std(np_arr ,axis=0)
+            z = (pos - np.mean(np_arr, axis=0) ) / std
+            """
+            print("pos",pos)
+            print("mean" ,np.mean(np_arr , axis=0))
+            print("std",std)
+            print("z",z)
+            print("res : ",np.sqrt(np.sum(np.square(z))) ,"old : ", np.sum(std) )
+            """
             std = np.sum(std) 
             self.ball_score = std
             self.arr.pop(0)
             self.arr.append(pos)
     def check_score(self):
         return  self.ball_score>self.ball_thres
-            
+    
+class stabilizer():
+    def __init__(self, n):
+        self.arr = []
+        self.n = n
+    def run(self,pos):
+        if len(self.arr)<self.n:
+            self.arr.append(pos)
+            return pos
+        else:
+            self.arr.pop(0)
+            self.arr.append(pos)
+            return np.mean(np.array(self.arr) , axis=0).astype(int)
+    def get(self):
+        if len(self.arr)<self.n:
+            return pos
+        else:
+            return np.mean(np.array(self.arr) , axis=0).astype(int)
 class eptz_random(object):
     def __init__(self , x=3840,y=1080,z=1.5):
         self.current = time()
@@ -107,24 +146,52 @@ def remap(value, leftMin, leftMax, rightMin, rightMax):
     return rightMin + (valueScaled * rightSpan)
 
 class recorder():
-    def __init__(self ,full_size , camera_size, fps):
+    def __init__(self ,full_size , camera_size, fps , index = None , stereo = False):
+        self.stereo = stereo
         t =  strftime("%Y_%m_%d_%H_%M_%S")
+        if index is None:
+            t1 = f"results/{t}_1.mp4"
+            if self.stereo:
+                t2 = f"results/{t}_2.mp4"
+        else:
+            t1 = f"results/{t}_{index}_1.mp4"
+            if self.stereo:
+                t2 = f"results/{t}_{index}_2.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-        t1 = "results/" + t + "_1.mp4"
-        t2 = "results/" + t + "_2.mp4"
-        
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-
-        self.out_1 = cv2.VideoWriter(t1, fourcc, fps, full_size)  
-        self.out_2 = cv2.VideoWriter(t2, fourcc, fps, camera_size)  
+        self.out_1 = cv2.VideoWriter(t1, fourcc, fps, camera_size)
+        if self.stereo:  
+            self.out_2 = cv2.VideoWriter(t2, fourcc, fps, full_size)  
 
     def write(self ,frame_1 , frame_2):
-        self.out_1.write(frame_1)
-        self.out_2.write(frame_2)
-
+        self.out_1.write(frame_2)
+        if self.stereo:
+            self.out_2.write(frame_1)
     def release(self):
         self.out_1.release()
-        self.out_2.release()
+        if self.stereo:
+            self.out_2.release()
+class remove_black_border():
+    def __init__(self):
+        pass
+    def run(self,img,M ,output_shape):
+        white = np.ones_like(img,dtype=np.uint8)*255
+        white = cv2.warpPerspective(white, M,output_shape , flags=cv2.INTER_NEAREST )
+        img = cv2.warpPerspective(img, M,output_shape , flags=cv2.INTER_NEAREST )
+        
+        (cnts, _) = cv2.findContours(white[:,:,0], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        (x, y, w, h) = cv2.boundingRect(cnts[0])
+        #self.roi = (x, y, w, h)
+        return img[y:y+h,x:x+w] , img , (x, y, w, h)
+class progress():
+    def __init__(self,num_workers):
+        self.prog = np.zeros([num_workers])
+    def update(self,idx,data):
+        self.prog[idx] = data
+        #os.system("clear")
+        for i,p in enumerate(self.prog):
+            print(f"Thread_{i} : {p} %")
+        
 if __name__ == "__main__":
-    s = strftime("%Y_%m_%d_%H_%M_%S") + ".mp4"
-    print(s)
+    pass
