@@ -188,5 +188,14 @@ stitched_img = stitcher.stitch([frame_L, frame_R])
 
 The system generates two outputs:
 
-1. **Source Video Feed** - Displays the original input video stream with annotations like bounding boxes around detected objects.
-2. **Resized Output Feed** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
+1. **Resized Output Feed** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
+2. **Source Video Feed** - Displays the original input video stream with annotations like bounding boxes around detected objects.
+ 
+
+https://github.com/user-attachments/assets/e431d875-abbd-452f-b10c-ddced1bb020c
+
+
+
+https://github.com/user-attachments/assets/b88bda37-8866-400b-8034-e4ce1a1ce6b1
+
+
