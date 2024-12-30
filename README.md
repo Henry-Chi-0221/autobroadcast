@@ -4,6 +4,21 @@
 
 Auto Broadcasting System uses OpenCV and Deep Learning to track basketball game dynamics. It detects and tracks players, balls, and baskets for real-time analysis. The system supports image stitching, object detection, and targeting with stabilizers for smooth performance. An ePTZ system handles camera motions, making it suitable for live broadcasting and analysis.
 
+# System Output (Demo)
+
+The system generates two outputs:
+
+1. **Resized Output Feed** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
+2. **Source Video Feed** - Displays the original input video stream with annotations like bounding boxes around detected objects.
+ 
+
+https://github.com/user-attachments/assets/e431d875-abbd-452f-b10c-ddced1bb020c
+
+
+
+https://github.com/user-attachments/assets/b88bda37-8866-400b-8034-e4ce1a1ce6b1
+
+
 ## Requirements
 
 ```bash
@@ -184,18 +199,6 @@ stitcher = VideoStitcher(fullsize=full_size, initial_frame_count=2)
 stitched_img = stitcher.stitch([frame_L, frame_R])
 ```
 
-# System Output (Demo)
 
-The system generates two outputs:
-
-1. **Resized Output Feed** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
-2. **Source Video Feed** - Displays the original input video stream with annotations like bounding boxes around detected objects.
- 
-
-https://github.com/user-attachments/assets/e431d875-abbd-452f-b10c-ddced1bb020c
-
-
-
-https://github.com/user-attachments/assets/b88bda37-8866-400b-8034-e4ce1a1ce6b1
 
 
