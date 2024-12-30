@@ -1,8 +1,8 @@
-# Auto Broadcasting System
+# Sports Tracking System
 
 ## System Overview
 
-Auto Broadcasting System uses OpenCV and Deep Learning to track basketball game dynamics. It detects and tracks players, balls, and baskets for real-time analysis. The system supports image stitching, object detection, and targeting with stabilizers for smooth performance. An ePTZ system handles camera motions, making it suitable for live broadcasting and analysis.
+Sports Tracking System uses OpenCV and Deep Learning to track basketball game dynamics. It detects and tracks players, balls, and baskets for real-time analysis. The system supports image stitching, object detection, and targeting with stabilizers for smooth performance. An ePTZ system handles camera motions, making it suitable for live broadcasting and analysis.
 
 # System Output (Demo)
 
