@@ -8,8 +8,8 @@ Auto Broadcasting System uses OpenCV and Deep Learning to track basketball game 
 
 The system generates two outputs:
 
-1. **Resized Output Feed** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
-2. **Source Video Feed** - Displays the original input video stream with annotations like bounding boxes around detected objects.
+1. **Resized Output** - Shows the zoomed-in and cropped view based on the tracked target, optimized for viewing specific dynamics in the game.
+2. **Source Video** - Displays the original input video stream with annotations like bounding boxes around detected objects.
  
 
 https://github.com/user-attachments/assets/e431d875-abbd-452f-b10c-ddced1bb020c
